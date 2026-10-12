@@ -86,7 +86,9 @@ Known trade-off: an exact word ("Using git rebase") beats a domain prefix (`gith
 
 "Glass" style, approved by the user (`static/popup.css`). Popups can't see the page behind them, so the glass is drawn
 over our own gradient; blobs are px-sized and anchored to the top corners so the panel looks the same at any height.
-Selection = white plate + accent ring + accent ↵. Site tiles: first letter of the full hostname, hue from the hostname.
+Selection = white plate + lavender ring (same violet as ✦) + ↵ drawn as a small key (like the hint line).
+✦ (usual pick) is a soft violet from the icon (`--spark`, lighter lavender in dark). System blue and the full icon
+gradient were both too loud for small glyphs on dark glass (user's call). Site tiles: first letter of the full hostname, hue from the hostname.
 Width 640px. For visual changes, render options from the real popup (Puppeteer) and show them before applying.
 
 ## Testing

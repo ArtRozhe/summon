@@ -14,9 +14,10 @@
   --muted: #5f5f69;
   --line: rgb(0 0 0 / 0.06);
   --accent: #0a7aff;
+  --spark: #7c5cf0;
   --selected-bg: rgb(255 255 255 / 0.9);
-  --selected-ring: rgb(10 122 255 / 0.5);
-  --selected-shadow: rgb(10 80 200 / 0.14);
+  --selected-ring: rgb(124 92 240 / 0.5);
+  --selected-shadow: rgb(90 60 200 / 0.14);
   --badge-bg: rgb(255 255 255 / 0.8);
   --badge-edge: rgb(0 0 0 / 0.06);
   --open: #1f7a37;
@@ -39,8 +40,9 @@
     --muted: #a9a9b4;
     --line: rgb(255 255 255 / 0.08);
     --accent: #0a84ff;
+    --spark: #c4b5fd;
     --selected-bg: rgb(255 255 255 / 0.15);
-    --selected-ring: rgb(10 132 255 / 0.7);
+    --selected-ring: rgb(196 181 253 / 0.55);
     --selected-shadow: rgb(0 0 0 / 0.3);
     --badge-bg: rgb(255 255 255 / 0.12);
     --badge-edge: rgb(255 255 255 / 0.06);

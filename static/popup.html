@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="color-scheme" content="light dark">
+  <title>Summon</title>
+  <link rel="stylesheet" href="popup.css">
+  <script type="module" src="popup.js"></script>
+</head>
+<body>
+  <main class="panel">
+    <div class="search">
+      <svg class="search-icon" viewBox="0 0 20 20" aria-hidden="true"><circle cx="8.5" cy="8.5" r="5.5"/><path d="m13 13 4 4"/></svg>
+      <input id="query" type="text" autofocus autocomplete="off" spellcheck="false"
+             role="combobox" aria-expanded="false" aria-controls="results" aria-autocomplete="list"
+             aria-label="Search tabs and bookmarks" placeholder="Search tabs and bookmarks">
+    </div>
+    <ul id="results" class="results" role="listbox" aria-label="Results"></ul>
+    <p id="status" class="status" role="status" aria-live="polite"></p>
+    <footer id="hints" class="hints" aria-hidden="true"></footer>
+  </main>
+</body>
+</html>

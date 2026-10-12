@@ -8,6 +8,7 @@ import {
   RESULTS_DIR,
   seed,
   selectedTitle,
+  settledState,
   state,
   titles,
   waitClosed,
@@ -28,11 +29,11 @@ beforeEach(async () => {
 });
 
 /** Presses a key that may close the popup; the press itself can then fail mid-way. */
-async function press(popup: Page, key: 'Enter' | 'Escape', shift = false): Promise<void> {
+async function press(popup: Page, key: 'Enter' | 'Escape', modifier?: 'Shift' | 'Alt'): Promise<void> {
   try {
-    if (shift) await popup.keyboard.down('Shift');
+    if (modifier) await popup.keyboard.down(modifier);
     await popup.keyboard.press(key);
-    if (shift) await popup.keyboard.up('Shift');
+    if (modifier) await popup.keyboard.up(modifier);
   } catch {
     // The popup closed during the key press.
   }
@@ -148,7 +149,7 @@ describe('actions', () => {
     await search(popup, 'graf');
     await press(popup, 'Enter');
     await waitClosed(popup);
-    const s = await state(h);
+    const s = await settledState(h, (s) => s.activeUrl === 'http://grafana.test/d/abc?from=now-1h');
     expect(s.activeTabId).not.toBe(here);
     expect(s.activeUrl).toBe('http://grafana.test/d/abc?from=now-1h');
     expect(s.tabCount).toBe(2);
@@ -160,9 +161,9 @@ describe('actions', () => {
     ]);
     const popup = await openPopup(h, here!);
     await search(popup, 'graf');
-    await press(popup, 'Enter', true);
+    await press(popup, 'Enter', 'Shift');
     await waitClosed(popup);
-    const s = await state(h);
+    const s = await settledState(h, (s) => s.activeUrl === 'http://grafana.test/');
     expect(s.activeTabId).toBe(here);
     expect(s.activeUrl).toBe('http://grafana.test/');
     expect(s.tabCount).toBe(1);
@@ -192,6 +193,52 @@ describe('actions', () => {
     expect(s.tabCount).toBe(2);
   });
 
+  it('Enter switches to a tab where the bookmark is open with extra parameters', async () => {
+    const [here, open] = await seed(
+      h,
+      [
+        { url: 'http://blank.test/', title: 'Blank' },
+        { url: 'http://translate.test/?sl=ru&tl=en&text=hello', title: 'Translate' },
+        { url: 'http://translate.test/?sl=en&tl=ru', title: 'Translate' },
+      ],
+      [
+        { title: 'TranslateRussianEnglish', url: 'http://translate.test/?sl=ru&tl=en' },
+        { title: 'TranslateEnglishRussian', url: 'http://translate.test/?sl=en&tl=ru' },
+      ],
+    );
+    const popup = await openPopup(h, here!);
+    await search(popup, 'tre');
+    expect(await selectedTitle(popup)).toBe('TranslateRussianEnglish');
+    await press(popup, 'Enter');
+    await waitClosed(popup);
+    const s = await state(h);
+    expect(s.activeTabId).toBe(open);
+    expect(s.tabCount).toBe(3);
+  });
+
+  it('⌥↵ switches to a similar tab of the same app; Enter stays strict', async () => {
+    const [here, app] = await seed(
+      h,
+      [
+        { url: 'http://blank.test/', title: 'Blank' },
+        { url: 'http://app.test/projects/7?company=b', title: 'Project 7 · App' },
+      ],
+      [{ title: 'AppProd', url: 'http://app.test/?company=a&date=2022-02-11' }],
+    );
+    const popup = await openPopup(h, here!);
+    await search(popup, 'ap');
+    expect(await selectedTitle(popup)).toBe('AppProd');
+    expect(await popup.$eval('#results [aria-selected="true"] .badges', (e) => e.textContent)).toContain('Similar open');
+    expect(await popup.$eval('#hints', (e) => e.textContent)).toContain('Switch to open tab');
+    expect(await popup.$eval('#hints', (e) => e.textContent)).toContain('Open in new tab');
+    await popup.screenshot({ path: `${RESULTS_DIR}/similar-open.png` });
+    await press(popup, 'Enter', 'Alt');
+    await waitClosed(popup);
+    const s = await state(h);
+    expect(s.activeTabId).toBe(app);
+    expect(s.tabCount).toBe(2);
+  });
+
   it('Shift+Enter on a tab still just activates it', async () => {
     const [here, other] = await seed(h, [
       { url: 'http://blank.test/', title: 'Blank' },
@@ -199,7 +246,7 @@ describe('actions', () => {
     ]);
     const popup = await openPopup(h, here!);
     await search(popup, 'linear');
-    await press(popup, 'Enter', true);
+    await press(popup, 'Enter', 'Shift');
     await waitClosed(popup);
     const s = await state(h);
     expect(s.activeTabId).toBe(other);

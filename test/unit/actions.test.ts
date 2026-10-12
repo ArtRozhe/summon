@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { pickTab, resolveAction } from '../../src/actions';
+import { describe as describeAction, pickTab, resolveAction } from '../../src/actions';
 import type { Context } from '../../src/types';
 import { bookmark, tab } from './fixtures';
 
@@ -7,39 +7,78 @@ const ctx: Context = { currentTabId: 100, currentWindowId: 1 };
 
 describe('resolveAction', () => {
   it('does nothing without a selected result', () => {
-    expect(resolveAction(undefined, false, ctx)).toBeNull();
-    expect(resolveAction(undefined, true, ctx)).toBeNull();
+    expect(resolveAction(undefined, {}, ctx)).toBeNull();
+    expect(resolveAction(undefined, { shift: true }, ctx)).toBeNull();
   });
 
   it('activates a tab on Enter and on Shift+Enter', () => {
     const t = tab('A', 'https://a.example/', { tabId: 5, windowId: 2 });
     const expected = { type: 'activate', tabId: 5, windowId: 2 };
-    expect(resolveAction(t, false, ctx)).toEqual(expected);
-    expect(resolveAction(t, true, ctx)).toEqual(expected);
+    expect(resolveAction(t, {}, ctx)).toEqual(expected);
+    expect(resolveAction(t, { shift: true }, ctx)).toEqual(expected);
   });
 
   it('only closes the panel for the current tab', () => {
-    expect(resolveAction(tab('Here', 'https://h.example/', { tabId: 100 }), false, ctx)).toEqual({ type: 'none' });
+    expect(resolveAction(tab('Here', 'https://h.example/', { tabId: 100 }), {}, ctx)).toEqual({ type: 'none' });
   });
 
   it('opens a closed bookmark in a new tab on Enter', () => {
-    expect(resolveAction(bookmark('B', 'https://b.example/'), false, ctx)).toEqual({ type: 'open-new', url: 'https://b.example/' });
+    expect(resolveAction(bookmark('B', 'https://b.example/'), {}, ctx)).toEqual({ type: 'open-new', url: 'https://b.example/' });
   });
 
   it('opens a bookmark in the current tab on Shift+Enter', () => {
     const expected = { type: 'open-here', tabId: 100, url: 'https://b.example/' };
-    expect(resolveAction(bookmark('B', 'https://b.example/'), true, ctx)).toEqual(expected);
+    expect(resolveAction(bookmark('B', 'https://b.example/'), { shift: true }, ctx)).toEqual(expected);
     const open = bookmark('B', 'https://b.example/', [{ tabId: 5, windowId: 1, lastAccessed: 1 }]);
-    expect(resolveAction(open, true, ctx)).toEqual(expected);
+    expect(resolveAction(open, { shift: true }, ctx)).toEqual(expected);
   });
 
   it('falls back to a new tab on Shift+Enter when the current tab is unknown', () => {
-    expect(resolveAction(bookmark('B', 'https://b.example/'), true, {})).toEqual({ type: 'open-new', url: 'https://b.example/' });
+    expect(resolveAction(bookmark('B', 'https://b.example/'), { shift: true }, {})).toEqual({ type: 'open-new', url: 'https://b.example/' });
   });
 
   it('switches to an already open bookmark on Enter instead of opening a duplicate', () => {
     const open = bookmark('B', 'https://b.example/', [{ tabId: 5, windowId: 3, lastAccessed: 1 }]);
-    expect(resolveAction(open, false, ctx)).toEqual({ type: 'activate', tabId: 5, windowId: 3 });
+    expect(resolveAction(open, {}, ctx)).toEqual({ type: 'activate', tabId: 5, windowId: 3 });
+  });
+});
+
+describe('⌥↵ on a bookmark', () => {
+  const similar = { tabId: 7, windowId: 2, lastAccessed: 3 };
+
+  it('switches to a similar tab when the bookmark itself is not open', () => {
+    const b = bookmark('App', 'https://app.example/?team=a', [], [similar]);
+    expect(resolveAction(b, { alt: true }, ctx)).toEqual({ type: 'activate', tabId: 7, windowId: 2 });
+    // Plain Enter stays strict: a new tab.
+    expect(resolveAction(b, {}, ctx)).toEqual({ type: 'open-new', url: 'https://app.example/?team=a' });
+  });
+
+  it('prefers a tab where the bookmark is open', () => {
+    const b = bookmark('App', 'https://app.example/', [{ tabId: 5, windowId: 1, lastAccessed: 1 }], [similar]);
+    expect(resolveAction(b, { alt: true }, ctx)).toEqual({ type: 'activate', tabId: 5, windowId: 1 });
+  });
+
+  it('does nothing without open or similar tabs', () => {
+    expect(resolveAction(bookmark('App', 'https://app.example/'), { alt: true }, ctx)).toBeNull();
+  });
+
+  it('only closes the panel when the similar tab is the current one', () => {
+    const b = bookmark('App', 'https://app.example/?team=a', [], [{ tabId: 100, windowId: 1, lastAccessed: 0 }]);
+    expect(resolveAction(b, { alt: true }, ctx)).toEqual({ type: 'none' });
+  });
+
+  it('acts like Enter on a tab result', () => {
+    const t = tab('A', 'https://a.example/', { tabId: 5, windowId: 2 });
+    expect(resolveAction(t, { alt: true }, ctx)).toEqual({ type: 'activate', tabId: 5, windowId: 2 });
+  });
+});
+
+describe('describe', () => {
+  it('offers ⌥↵ only for a bookmark with similar tabs and no exact one', () => {
+    const similar = [{ tabId: 7, windowId: 1, lastAccessed: 0 }];
+    expect(describeAction(bookmark('App', 'https://app.example/?a=1', [], similar), ctx)?.altEnter).toBe('Switch to open tab');
+    expect(describeAction(bookmark('App', 'https://app.example/', similar, similar), ctx)?.altEnter).toBeUndefined();
+    expect(describeAction(bookmark('App', 'https://app.example/'), ctx)?.altEnter).toBeUndefined();
   });
 });
 

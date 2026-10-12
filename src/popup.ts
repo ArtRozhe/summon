@@ -1,7 +1,7 @@
 import { describe, execute, resolveAction } from './actions';
 import { buildItems } from './data';
 import { prepare, search, type Prepared } from './search';
-import type { Context, Item } from './types';
+import type { Context, Item, Modifiers } from './types';
 
 const LOADING_DELAY_MS = 150;
 
@@ -65,6 +65,7 @@ function badgesFor(item: Item): string[] {
   const badges = [item.kind === 'tab' ? 'Tab' : 'Bookmark'];
   if (item.tabs.some((t) => t.tabId === ctx.currentTabId)) badges.push('Current');
   else if (item.kind === 'bookmark' && item.tabs.length) badges.push('Open');
+  else if (item.kind === 'bookmark' && item.similarTabs.length) badges.push('Similar open');
   else if (item.kind === 'tab' && item.tabs[0]!.windowId !== ctx.currentWindowId) badges.push('Other window');
   return badges;
 }
@@ -96,7 +97,7 @@ function renderRow(item: Item, index: number): HTMLLIElement {
   badgeBox.className = 'badges';
   for (const label of badges) {
     const badge = document.createElement('span');
-    badge.className = label === 'Open' ? 'badge open' : 'badge';
+    badge.className = label === 'Open' || label === 'Similar open' ? 'badge open' : 'badge';
     badge.textContent = label;
     badgeBox.append(badge);
   }
@@ -114,6 +115,7 @@ function setStatus(text: string, isError = false): void {
 function renderHints(): void {
   const d = describe(results[selected], ctx);
   const parts = d ? [`<kbd>↵</kbd> ${d.enter}`] : [];
+  if (d?.altEnter) parts.push(`<kbd>⌥↵</kbd> ${d.altEnter}`);
   if (d?.shiftEnter) parts.push(`<kbd>⇧↵</kbd> ${d.shiftEnter}`);
   if (results.length > 1) parts.push('<kbd>↑↓</kbd> Select');
   parts.push('<kbd>esc</kbd> Close');
@@ -150,8 +152,8 @@ function update(): void {
   }
 }
 
-async function run(shift: boolean): Promise<void> {
-  const action = resolveAction(results[selected], shift, ctx);
+async function run(mods: Modifiers): Promise<void> {
+  const action = resolveAction(results[selected], mods, ctx);
   if (!action || busy) return;
   busy = true;
   try {
@@ -178,7 +180,7 @@ input.addEventListener('keydown', (e) => {
       break;
     case 'Enter':
       e.preventDefault();
-      void run(e.shiftKey);
+      void run({ shift: e.shiftKey, alt: e.altKey });
       break;
     case 'Escape':
       e.preventDefault();
@@ -196,7 +198,7 @@ list.addEventListener('click', (e) => {
   const row = (e.target as Element).closest<HTMLElement>('.row');
   if (!row) return;
   select(Number(row.dataset.index));
-  void run(e.shiftKey);
+  void run({ shift: e.shiftKey, alt: e.altKey });
   input.focus();
 });
 

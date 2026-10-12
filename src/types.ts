@@ -14,14 +14,24 @@ export interface Item {
   /** Display title first, then other titles that should also match (other bookmark names, tab titles). */
   titles: string[];
   url: string;
-  /** For a tab: exactly that tab. For a bookmark: open tabs with the same URL, possibly none. */
+  /**
+   * For a tab: exactly that tab. For a bookmark: tabs where it is open — same origin and path,
+   * every query parameter of the bookmark present with the same value, same hash if the bookmark has one.
+   */
   tabs: TabRef[];
+  /** Bookmarks only: tabs of the same origin under the bookmark's path, with other parameters (⌥↵ switches to them). */
+  similarTabs: TabRef[];
 }
 
 /** The tab and window the panel was invoked from. */
 export interface Context {
   currentTabId?: number;
   currentWindowId?: number;
+}
+
+export interface Modifiers {
+  shift?: boolean;
+  alt?: boolean;
 }
 
 export type Action =

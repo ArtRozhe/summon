@@ -167,6 +167,19 @@ export async function state(h: Harness): Promise<BrowserState> {
 }
 
 /**
+ * Polls the browser state until `ready` holds (or 2 s pass), then returns it. Actions are dispatched
+ * as the popup closes, so tabs.query can briefly report the previous state.
+ */
+export async function settledState(h: Harness, ready: (s: BrowserState) => boolean): Promise<BrowserState> {
+  let s = await state(h);
+  for (let i = 0; i < 40 && !ready(s); i++) {
+    await new Promise((r) => setTimeout(r, 50));
+    s = await state(h);
+  }
+  return s;
+}
+
+/**
  * Opens the real action popup for the given tab, as a toolbar click would.
  * The keyboard shortcut itself cannot be pressed from CDP; that stays a manual check.
  */

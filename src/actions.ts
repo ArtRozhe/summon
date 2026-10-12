@@ -1,4 +1,4 @@
-import type { Action, Context, Item, TabRef } from './types';
+import type { Action, Context, Item, Modifiers, TabRef } from './types';
 
 /** Among tabs with the same URL: the current tab, else one in the current window, else the most recently used. */
 export function pickTab(tabs: TabRef[], ctx: Context): TabRef | undefined {
@@ -8,30 +8,42 @@ export function pickTab(tabs: TabRef[], ctx: Context): TabRef | undefined {
   return byRecency.find((t) => t.windowId === ctx.currentWindowId) ?? byRecency[0];
 }
 
-export function resolveAction(item: Item | undefined, shift: boolean, ctx: Context): Action | null {
-  if (!item) return null;
-
-  // Shift+Enter on a bookmark explicitly loads it in the current tab, even if it is open elsewhere.
-  if (item.kind === 'bookmark' && shift) {
-    return ctx.currentTabId === undefined
-      ? { type: 'open-new', url: item.url }
-      : { type: 'open-here', tabId: ctx.currentTabId, url: item.url };
-  }
-
-  const tab = pickTab(item.tabs, ctx);
-  if (!tab) return { type: 'open-new', url: item.url };
+function switchTo(tabs: TabRef[], ctx: Context): Action | null {
+  const tab = pickTab(tabs, ctx);
+  if (!tab) return null;
   if (tab.tabId === ctx.currentTabId) return { type: 'none' };
   return { type: 'activate', tabId: tab.tabId, windowId: tab.windowId };
 }
 
-/** What Enter / Shift+Enter will do, for the hint line. */
-export function describe(item: Item | undefined, ctx: Context): { enter: string; shiftEnter?: string } | null {
+export function resolveAction(item: Item | undefined, mods: Modifiers, ctx: Context): Action | null {
   if (!item) return null;
-  const enter = resolveAction(item, false, ctx)!;
+
+  if (item.kind === 'bookmark') {
+    // ⌥↵: switch to a tab where the bookmark is open, or else to a similar one (same app, other parameters).
+    if (mods.alt) return switchTo(item.tabs, ctx) ?? switchTo(item.similarTabs, ctx);
+    // ⇧↵ explicitly loads the bookmark in the current tab, even if it is open elsewhere.
+    if (mods.shift) {
+      return ctx.currentTabId === undefined
+        ? { type: 'open-new', url: item.url }
+        : { type: 'open-here', tabId: ctx.currentTabId, url: item.url };
+    }
+  }
+
+  return switchTo(item.tabs, ctx) ?? { type: 'open-new', url: item.url };
+}
+
+/** What Enter / ⇧↵ / ⌥↵ will do, for the hint line. */
+export function describe(
+  item: Item | undefined,
+  ctx: Context,
+): { enter: string; shiftEnter?: string; altEnter?: string } | null {
+  if (!item) return null;
+  const enter = resolveAction(item, {}, ctx)!;
   const enterLabel =
     enter.type === 'open-new' ? 'Open in new tab' : enter.type === 'none' ? 'Already here' : 'Switch to tab';
   if (item.kind === 'tab') return { enter: enterLabel };
-  return { enter: enterLabel, shiftEnter: 'Open in this tab' };
+  const altEnter = !item.tabs.length && item.similarTabs.length ? 'Switch to open tab' : undefined;
+  return { enter: enterLabel, shiftEnter: 'Open in this tab', altEnter };
 }
 
 /**

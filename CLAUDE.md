@@ -5,13 +5,24 @@ User-facing docs, run instructions and the manual checklist are in `README.md`; 
 
 ## Architecture (decided, keep unless there is a reason)
 
-- **Two shells, one panel.** `src/ui/panel.ts` (+ `panel.css`) is the search panel: rows, keys, hints, states.
+- **Three shells, one panel.** `src/ui/panel.ts` (+ `panel.css`) is the search panel: rows, keys, hints, states.
   - **Overlay** (`src/overlay.ts`, `ui/overlay.css`) — main shell. The icon click / `_execute_action` shortcut reach
     `action.onClicked` in the background worker (the action has no default popup), which injects `overlay.js` into the
     current tab with `activeTab` + `scripting`. Why: the action popup needs a new renderer process per opening and
     took ~1 s in the user's Chrome (other extensions' popups too); the overlay appears in 2–6 ms.
-  - **Popup** (`src/popup.ts`, `ui/popup.css`) — fallback where scripts can't run (chrome://, Web Store, PDF, NTP):
+  - **Popup** (`src/popup.ts`, `ui/popup.css`) — fallback where scripts can't run (chrome://, Web Store, PDF):
     `executeScript` throws, the worker sets a per-tab popup, calls `action.openPopup()` (Chrome 127+), unsets it.
+  - **New tab page** (`src/newtab.ts`, `ui/newtab.css`, `chrome_url_overrides.newtab`) — the panel centered over our
+    wallpaper, reusing the overlay's glass CSS. Context has `blankTab`: opening replaces this tab (`open-new` →
+    `open-here`), switching away closes it, Esc clears. **Focus:** Chrome gives every new tab's focus to the address bar
+    (documented); `tabs.update` to the page itself doesn't change that, but a tab created with `tabs.create` gets page
+    focus (checked by hand). So the worker's `tabs.onCreated` swaps a fresh New Tab (`chrome://newtab/` or our page
+    without `?replaced`) for `newtab.html?replaced` at the same index and closes the original. Done in the worker, not
+    by the page, so only one page loads; the Chrome-opened page doesn't render (shows itself after 1.5 s if never
+    replaced). Measured ⌘T → focused field: ~50 ms in a clean profile; ~470 ms in the user's work-managed profile
+    (enterprise policies: real-time URL check, reporting) — the delay is before the document becomes interactive,
+    same with no extensions and with a second Summon tab open, so not ours to fix. Resource Timing is empty for
+    extension pages.
 - **Overlay isolation:** closed shadow root in a custom element, made a `popover` (top layer: above any z-index and
   fullscreen). Host styles via CSSOM `setProperty(..., 'important')`, panel CSS via constructed stylesheets — both work
   under a strict page CSP (E2E covers it). Keys stop propagating at the panel, so site shortcuts don't fire.
@@ -128,19 +139,20 @@ annoys, switch `.hl` in `panel.css` to one of those. For visual changes, render 
   bookmarks, never copy its contents into the repo (tests and docs use neutral examples).
 - Icon: "Spark" (sparkle on the Glass gradient), picked by the user from rendered options. Sources in `assets/`
   (`icon-small.svg` for 16/32 px drops the second sparkle); `npm run icons` renders `static/icons/*.png`.
-- No UI framework, no runtime dependencies; build = esbuild (`popup`, `background` as ESM, `overlay` as IIFE, CSS as
+- No UI framework, no runtime dependencies; build = esbuild (`popup`, `newtab`, `background` as ESM, `overlay` as IIFE, CSS as
   text) + copying `static/` to `dist/`.
 
 ## Roadmap
 
 `ROADMAP.md` — order agreed with the user; take items top-down.
 
-## Status (2026-10-12)
+## Status (2026-10-13)
 
 Done: MVP, CamelHumps search, open/similar rule (⌥↵), in-page overlay with popup fallback, memory (usual picks ✦,
 ⌥↵ habit, export/import via `>`), wrong-layout search, match highlighting (style "E" on trial), Spark icon,
-lavender accents. Unit 86/86, E2E 24/24, all pushed.
+lavender accents. Unit 89/89, E2E 27/27.
+New tab page (core: focused search, blank-tab behavior) on branch `newtab`, to be fast-forwarded into `main` after
+the user has lived with it; extras (frequent picks, stale tabs, clock) not started.
 Pending: rest of the README manual checklist in real Chrome — shortcut with focus in the address bar, sites with
 their own shortcuts (GitHub, Google Docs, Jira), restricted pages (chrome://settings, Web Store, PDF). What the user
-used day to day works. Next on the roadmap: new tab page (starts with a focus prototype).
-Claude in Chrome can't open chrome:// or extension pages, so it can't drive Summon itself.
+used day to day works. Claude in Chrome can't open chrome:// or extension pages, so it can't drive Summon itself.

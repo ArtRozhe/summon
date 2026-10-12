@@ -1,0 +1,30 @@
+/*
+ * New tab page: the overlay's glass panel over our own wallpaper (the page has nothing behind it).
+ * Loaded after overlay.css, which provides the panel's look and position.
+ */
+html, body {
+  margin: 0;
+  min-height: 100vh;
+}
+
+body {
+  background:
+    radial-gradient(60vw 50vh at 10% 0, #cddfff 0%, transparent 70%),
+    radial-gradient(60vw 50vh at 90% 10%, #ffd6ea 0%, transparent 70%),
+    radial-gradient(70vw 60vh at 50% 100%, #e3dcff 0%, transparent 70%),
+    #eef0f6;
+}
+
+@media (prefers-color-scheme: dark) {
+  body {
+    background:
+      radial-gradient(60vw 50vh at 10% 0, #1f3466 0%, transparent 70%),
+      radial-gradient(60vw 50vh at 90% 10%, #4a2140 0%, transparent 70%),
+      radial-gradient(70vw 60vh at 50% 100%, #2b2357 0%, transparent 70%),
+      #18181c;
+  }
+}
+
+.panel {
+  animation: none;
+}

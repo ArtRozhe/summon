@@ -35,6 +35,9 @@
       }
     }
   },
+  "chrome_url_overrides": {
+    "newtab": "newtab.html"
+  },
   "background": {
     "service_worker": "background.js",
     "type": "module"

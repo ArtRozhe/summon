@@ -4,15 +4,10 @@ Ordered by value for the core flow (shortcut → a few letters → Enter). Top-d
 
 ## Next — more capability
 
-1. **New tab page.** The New Tab page is one of the places where the overlay can't run (it falls back to the slow
-   popup). `chrome_url_overrides.newtab` with the search field centered over a bundled wallpaper, plus local-only
-   extras: recent tabs, frequent picks (from memory), stale tabs to close in one go, clock. Start with a **focus prototype**: Chrome gives new tabs' focus to the address
-   bar, so check manually whether ⌘T → typing can reach our field (e.g. the page re-navigating itself via
-   `chrome.tabs.update`). If it can't without a click, reconsider the item and lean on 2.
-   Behavior differs from the popup: the current tab is the Summon page itself, so Enter on a bookmark opens it in place,
-   and switching to another tab closes the empty Summon tab. Trade-offs: replaces Chrome's own new tab (tiles,
-   "Customize Chrome"), can't be toggled without a settings page — or ship it as a separate small extension from the
-   same code. Not available in incognito.
+1. **New tab page** — core done (branch `newtab`): focused search on ⌘T via the worker's tab swap, blank-tab
+   behavior. Left: local-only extras — frequent picks (from memory), stale tabs to close in one go, clock; a way to
+   turn the page off (it replaces Chrome's own new tab: tiles, "Customize Chrome") — a settings page, or a separate
+   small extension from the same code. Not available in incognito.
 2. **Address bar search** via `chrome.omnibox`: type `s`, Tab, then the query; suggestions come from tabs and
    bookmarks. Focus is already in the address bar after ⌘T, no install warning. Plainer UI (suggestion rows only).
 3. **Real favicons** via the `favicon` permission. Icons come from Chrome's local cache, no network requests.

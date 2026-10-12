@@ -20,6 +20,15 @@ function switchTo(tabs: TabRef[], ctx: Context): Action | null {
  * opens the bookmark anew, the other way round from the default.
  */
 export function resolveAction(item: Item | undefined, mods: Modifiers, ctx: Context, preferSwitch = false): Action | null {
+  const action = resolve(item, mods, ctx, preferSwitch);
+  // A blank Summon tab is there to be replaced: open things in it instead of next to it.
+  if (action?.type === 'open-new' && ctx.blankTab && ctx.currentTabId !== undefined) {
+    return { type: 'open-here', tabId: ctx.currentTabId, url: action.url };
+  }
+  return action;
+}
+
+function resolve(item: Item | undefined, mods: Modifiers, ctx: Context, preferSwitch: boolean): Action | null {
   if (!item) return null;
 
   if (item.kind === 'bookmark') {
@@ -52,21 +61,26 @@ export function describe(
   const enterLabel =
     enter.type === 'open-new'
       ? 'Open in new tab'
-      : enter.type === 'none'
+      : enter.type === 'open-here'
+        ? 'Open in this tab'
+        : enter.type === 'none'
         ? 'Already here'
         : onlySimilar
           ? 'Switch to open tab'
           : 'Switch to tab';
   if (item.kind === 'tab') return { enter: enterLabel };
-  const altEnter = onlySimilar ? (preferSwitch ? 'Open in new tab' : 'Switch to open tab') : undefined;
-  return { enter: enterLabel, shiftEnter: 'Open in this tab', altEnter };
+  const openLabel = ctx.blankTab ? 'Open in this tab' : 'Open in new tab';
+  const altEnter = onlySimilar ? (preferSwitch ? openLabel : 'Switch to open tab') : undefined;
+  // In a blank tab ⇧↵ does the same as opening.
+  return { enter: enterLabel, shiftEnter: ctx.blankTab ? undefined : 'Open in this tab', altEnter };
 }
 
 /** For memory: what a choice on a bookmark with only similar tabs amounted to. */
 export function similarOutcome(item: Item, mods: Modifiers, action: Action): 'switch' | 'new' | undefined {
   if (item.kind !== 'bookmark' || item.tabs.length || !item.similarTabs.length || mods.shift) return undefined;
   if (action.type === 'activate' || action.type === 'none') return 'switch';
-  return action.type === 'open-new' ? 'new' : undefined;
+  // Shift is ruled out above, so loading here means opening anew from a blank tab.
+  return action.type === 'open-new' || action.type === 'open-here' ? 'new' : undefined;
 }
 
 /**
@@ -82,6 +96,8 @@ export async function execute(action: Action, ctx: Context): Promise<void> {
       if (action.windowId !== ctx.currentWindowId) {
         calls.push(chrome.windows.update(action.windowId, { focused: true }));
       }
+      // Switching away leaves the blank Summon tab behind: close it.
+      if (ctx.blankTab && ctx.currentTabId !== undefined) calls.push(chrome.tabs.remove(ctx.currentTabId));
       break;
     case 'open-new':
       calls.push(chrome.tabs.create({ url: action.url, active: true, windowId: ctx.currentWindowId }));

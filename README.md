@@ -15,6 +15,10 @@ Keyboard search across open tabs and bookmarks for Chrome. One shortcut, a few l
 
 An empty query lists recently used tabs, so shortcut → Enter jumps back to the previous tab.
 
+**New tab page.** Summon also replaces Chrome's New Tab page with the same search, focused, so ⌘T → a few letters →
+Enter works too. There the new tab itself is the "current tab": Enter on a bookmark opens it in that tab, switching to
+another tab closes the empty one (⌘T → Enter = back to the previous tab), Esc clears the field.
+
 A bookmark is **open** in a tab with the same origin and path where every query parameter of the bookmark is present
 with the same value (extra parameters are fine) and, if the bookmark has a hash, the same hash. So a translator bookmark
 with `sl=ru&tl=en` is open in a tab that also has `text=…`, but not in one translating the other way.
@@ -68,7 +72,9 @@ so a few checks stay manual:
 
 - [ ] On a regular page the shortcut shows the panel at once, centered, with focus in the field — also when the
       address bar had focus.
-- [ ] On `chrome://settings`, the Chrome Web Store, the New Tab page and a PDF the popup opens instead.
+- [ ] On `chrome://settings`, the Chrome Web Store and a PDF the popup opens instead.
+- [ ] ⌘T shows Summon's new tab with focus in the field (typing right away goes into the field, not the address bar);
+      a new window (⌘N) too.
 - [ ] Typing in the panel doesn't trigger the site's own shortcuts (GitHub, Google Docs, Jira).
 - [ ] The shortcut can be changed at `chrome://extensions/shortcuts`.
 - [ ] Clicking outside the panel closes it.
@@ -90,7 +96,11 @@ No host permissions or network requests. Tabs and bookmarks are read fresh each 
 On regular pages the panel is drawn **inside the page**, over it, so it appears at once — the toolbar popup needs a
 new browser process each time and can take about a second. It lives in a closed shadow root, out of reach of the
 page's scripts and styles; the page shows through it blurred. Where extensions can't run scripts (`chrome://` pages,
-the Chrome Web Store, PDFs, the New Tab page) the same panel opens as the toolbar popup instead.
+the Chrome Web Store, PDFs) the same panel opens as the toolbar popup instead.
+
+Chrome always gives a new tab's focus to the address bar, also when an extension provides the page. A tab an extension
+creates itself gets page focus, so when a New Tab opens, Summon's background worker opens its page in a fresh tab at
+the same place and closes the original. The address bar then shows Summon's page address instead of staying empty.
 
 ## What Summon learns
 

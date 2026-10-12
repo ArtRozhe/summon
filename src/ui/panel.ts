@@ -26,6 +26,8 @@ export interface PanelShell {
   /** Runs the action and closes the panel; rejects to show an error in the panel. */
   perform(action: Action, ctx: Context): Promise<void>;
   close(): void;
+  /** What Esc does, for the hint line (default "Close"). */
+  escapeLabel?: string;
   /** Called once results are first shown (for timing diagnostics). */
   loaded?(): void;
   /** Merges imported memory into the stored one and returns the result. Absent where a file picker can't work. */
@@ -250,7 +252,7 @@ export function mountPanel(panel: HTMLElement, shell: PanelShell): { input: HTML
       hints.innerHTML = [
         commands.length ? '<kbd>↵</kbd> Run' : '',
         commands.length > 1 ? '<kbd>↑↓</kbd> Select' : '',
-        '<kbd>esc</kbd> Close',
+        `<kbd>esc</kbd> ${shell.escapeLabel ?? 'Close'}`,
       ]
         .filter(Boolean)
         .map((p) => `<span>${p}</span>`)
@@ -262,7 +264,7 @@ export function mountPanel(panel: HTMLElement, shell: PanelShell): { input: HTML
     if (d?.altEnter) parts.push(`<kbd>⌥↵</kbd> ${d.altEnter}`);
     if (d?.shiftEnter) parts.push(`<kbd>⇧↵</kbd> ${d.shiftEnter}`);
     if (count() > 1) parts.push('<kbd>↑↓</kbd> Select');
-    parts.push('<kbd>esc</kbd> Close');
+    parts.push(`<kbd>esc</kbd> ${shell.escapeLabel ?? 'Close'}`);
     hints.innerHTML = parts.map((p) => `<span>${p}</span>`).join('');
   }
 

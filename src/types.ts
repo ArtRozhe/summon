@@ -27,6 +27,8 @@ export interface Item {
 export interface Context {
   currentTabId?: number;
   currentWindowId?: number;
+  /** The current tab is Summon's own new tab page: opening replaces it, switching away closes it. */
+  blankTab?: boolean;
 }
 
 export interface Modifiers {

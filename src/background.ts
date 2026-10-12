@@ -1,6 +1,7 @@
 import { execute } from './actions';
 import { buildItems } from './data';
 import { type Memory, merge, type PickEvent, record } from './memory';
+import { isFreshNewTab, REPLACED } from './newtab-focus';
 import { loadMemory, saveMemory } from './storage';
 import type { Action, Context, Item } from './types';
 
@@ -20,6 +21,17 @@ chrome.action.onClicked.addListener(async (tab) => {
   } catch {
     await openPopupFallback(tab);
   }
+});
+
+/**
+ * New Tab page focus: swap a tab Chrome opened on the New Tab page for one we create (that one gets
+ * page focus, see newtab-focus.ts). Done here rather than from the page, so the page loads once.
+ */
+chrome.tabs.onCreated.addListener(async (tab) => {
+  if (!tab.active || tab.id === undefined || !isFreshNewTab(tab)) return;
+  const url = chrome.runtime.getURL(`newtab.html?${REPLACED}`);
+  await chrome.tabs.create({ url, index: tab.index, windowId: tab.windowId, active: true });
+  await chrome.tabs.remove(tab.id);
 });
 
 async function openPopupFallback(tab: chrome.tabs.Tab): Promise<void> {

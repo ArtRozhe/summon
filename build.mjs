@@ -17,7 +17,7 @@ const common = {
   loader: { '.css': 'text' },
 };
 const builds = [
-  { ...common, entryPoints: ['src/popup.ts', 'src/background.ts'], format: 'esm' },
+  { ...common, entryPoints: ['src/popup.ts', 'src/newtab.ts', 'src/background.ts'], format: 'esm' },
   // Injected with scripting.executeScript, which runs classic scripts only.
   { ...common, entryPoints: ['src/overlay.ts'], format: 'iife' },
 ];

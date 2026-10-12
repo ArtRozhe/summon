@@ -122,3 +122,23 @@ describe('learned preference to switch to a similar tab', () => {
     expect(similarOutcome(open, {}, { type: 'activate', tabId: 5, windowId: 1 })).toBeUndefined();
   });
 });
+
+describe('blank Summon tab (new tab page)', () => {
+  const blank: Context = { ...ctx, blankTab: true };
+  const other = { tabId: 7, windowId: 1, lastAccessed: 3 };
+
+  it('opens bookmarks in place instead of a new tab', () => {
+    expect(resolveAction(bookmark('B', 'https://b.example/'), {}, blank)).toEqual({ type: 'open-here', tabId: 100, url: 'https://b.example/' });
+    expect(describeAction(bookmark('B', 'https://b.example/'), blank)).toEqual({ enter: 'Open in this tab', shiftEnter: undefined, altEnter: undefined });
+  });
+
+  it('still switches to open tabs', () => {
+    expect(resolveAction(tab('T', 'https://t.example/', other), {}, blank)).toEqual({ type: 'activate', tabId: 7, windowId: 1 });
+  });
+
+  it('counts opening in place as opening anew for the ⌥↵ habit', () => {
+    const app = bookmark('App', 'https://app.example/?team=a', [], [other]);
+    expect(similarOutcome(app, {}, resolveAction(app, {}, blank)!)).toBe('new');
+    expect(describeAction(app, blank)).toEqual({ enter: 'Open in this tab', shiftEnter: undefined, altEnter: 'Switch to open tab' });
+  });
+});

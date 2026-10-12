@@ -90,6 +90,8 @@ Width 640px. For visual changes, render options from the real popup (Puppeteer) 
 - npm 11 install scripts allowed only for `esbuild` and `puppeteer` (`allowScripts` in `package.json`).
 - `local/` (gitignored) holds personal data such as the user's bookmark export — use it to check ranking on real
   bookmarks, never copy its contents into the repo (tests and docs use neutral examples).
+- Icon: "Spark" (sparkle on the Glass gradient), picked by the user from rendered options. Sources in `assets/`
+  (`icon-small.svg` for 16/32 px drops the second sparkle); `npm run icons` renders `static/icons/*.png`.
 - No UI framework, no runtime dependencies; build = esbuild bundling `src/popup.ts` + copying `static/` to `dist/`.
 
 ## Roadmap

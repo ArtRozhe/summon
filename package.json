@@ -10,7 +10,8 @@
     "watch": "node build.mjs --watch",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "e2e": "npm run build && vitest run --config vitest.e2e.config.ts"
+    "e2e": "npm run build && vitest run --config vitest.e2e.config.ts",
+    "icons": "node scripts/icons.mjs"
   },
   "devDependencies": {
     "@types/chrome": "^0.3.5",

@@ -97,6 +97,8 @@ so a few checks stay manual:
 - `bookmarks` — read bookmarks. Chrome shows "Read and change your bookmarks"; Summon never changes them.
 - `activeTab` + `scripting` — draw the panel inside the current page, only when you invoke Summon. No install warning.
 - `storage` — remember your picks (below), on this computer only. No install warning.
+- `favicon` — show site icons, read from Chrome's own icon cache (no network requests). No extra install warning next
+  to `tabs`. Sites without a cached icon get a letter tile.
 
 No host permissions or network requests. Tabs and bookmarks are read fresh each time the panel opens.
 

@@ -11,6 +11,7 @@ import {
   prefersSwitch,
   size,
 } from '../memory';
+import type { IconMap } from '../favicons';
 import { highlight, type Range } from '../highlight';
 import { layoutVariants } from '../layout';
 import { isPinned, prepare, search, type Prepared } from '../search';
@@ -20,7 +21,10 @@ const LOADING_DELAY_MS = 150;
 
 /** Where the panel lives: the action popup or the overlay inside a page. */
 export interface PanelShell {
-  load(): Promise<{ items: Item[]; ctx: Context; memory: Memory }>;
+  /** `icons`: site icons already known, so the first results show them at once. */
+  load(): Promise<{ items: Item[]; ctx: Context; memory: Memory; icons?: IconMap }>;
+  /** Site icons for these result URLs (fetched if needed). Absent: letter tiles only. */
+  icons?(urls: string[]): Promise<IconMap>;
   /** Saves a pick to memory (fire and forget). */
   remember(event: PickEvent): void;
   /** Runs the action and closes the panel; rejects to show an error in the panel. */
@@ -71,8 +75,21 @@ export function shortUrl(url: string): string {
   }
 }
 
-/** Site tile: the domain's first letter on a hue derived from the domain, so a site keeps its color. */
-export function renderTile(item: Item): HTMLSpanElement {
+/**
+ * Site tile: the site's icon on a white plate when Chrome has one, else the domain's first letter on a hue
+ * derived from the domain, so a site keeps its color.
+ */
+export function renderTile(item: Item, icon?: string | null): HTMLSpanElement {
+  if (icon) {
+    const tile = document.createElement('span');
+    tile.className = 'tile icon';
+    tile.setAttribute('aria-hidden', 'true');
+    const img = document.createElement('img');
+    img.src = icon;
+    img.alt = '';
+    tile.append(img);
+    return tile;
+  }
   let host = '';
   try {
     host = new URL(item.url).hostname.replace(/^www\./, '');
@@ -114,7 +131,7 @@ function setMarkedText(el: HTMLElement, text: string, ranges: Range[]): void {
   if (at < text.length) el.append(text.slice(at));
 }
 
-function renderRow(item: Item, index: number, ctx: Context, pinned: boolean, query: string): HTMLLIElement {
+function renderRow(item: Item, index: number, ctx: Context, pinned: boolean, query: string, icon?: string | null): HTMLLIElement {
   const li = document.createElement('li');
   li.id = `summon-option-${index}`;
   li.className = pinned ? 'row pinned' : 'row';
@@ -147,7 +164,7 @@ function renderRow(item: Item, index: number, ctx: Context, pinned: boolean, que
     badgeBox.append(badge);
   }
 
-  li.append(renderTile(item), text, badgeBox);
+  li.append(renderTile(item, icon), text, badgeBox);
   li.setAttribute('aria-label', `${title}, ${url}, ${badges.join(', ')}${pinned ? ', your usual pick' : ''}`);
   return li;
 }
@@ -206,6 +223,7 @@ export function mountPanel(panel: HTMLElement, shell: PanelShell): { input: HTML
   let results: Item[] = [];
   /** Shown instead of results while the query starts with ">". */
   let commands: Command[] | null = null;
+  let icons: IconMap = {};
   let selected = 0;
   let ready = false;
   let busy = false;
@@ -301,8 +319,11 @@ export function mountPanel(panel: HTMLElement, shell: PanelShell): { input: HTML
     learned = learnedForAny(memory, variants, Date.now());
     results = search(prepared, query, ctx, learned);
     selected = 0;
-    list.replaceChildren(...results.map((item, i) => renderRow(item, i, ctx, i === 0 && isPinned(item, learned), query)));
+    list.replaceChildren(
+      ...results.map((item, i) => renderRow(item, i, ctx, i === 0 && isPinned(item, learned), query, icons[item.url])),
+    );
     input.setAttribute('aria-expanded', String(results.length > 0));
+    fillIcons();
 
     if (results.length) {
       setStatus('');
@@ -312,6 +333,24 @@ export function mountPanel(panel: HTMLElement, shell: PanelShell): { input: HTML
       setStatus(query.trim() ? `No matches for “${query.trim()}”` : 'Type to search tabs and bookmarks');
       renderHints();
     }
+  }
+
+  /** Asks for icons the shown results don't have yet and swaps them into the rows that are still shown. */
+  function fillIcons(): void {
+    const missing = [...new Set(results.map((item) => item.url).filter((url) => !(url in icons)))];
+    if (!shell.icons || !missing.length) return;
+    const shown = results;
+    shell.icons(missing).then(
+      (found) => {
+        icons = { ...icons, ...found };
+        if (results !== shown) return;
+        shown.forEach((item, i) => {
+          const tile = list.children[i]?.querySelector('.tile');
+          if (found[item.url] && tile) tile.replaceWith(renderTile(item, found[item.url]));
+        });
+      },
+      () => {},
+    );
   }
 
   async function runCommand(command: Command): Promise<void> {
@@ -385,6 +424,7 @@ export function mountPanel(panel: HTMLElement, shell: PanelShell): { input: HTML
         (data) => {
           ctx = data.ctx;
           memory = data.memory;
+          icons = { ...icons, ...data.icons };
           prepared = data.items.map(prepare);
           ready = true;
           update();

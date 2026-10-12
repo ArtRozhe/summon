@@ -7,6 +7,7 @@
 import { execute, resolveAction } from './actions';
 import type { OverlayRequest } from './background';
 import { buildItems } from './data';
+import { cachedIcons, type IconMap, loadIcons } from './favicons';
 import { type Memory, memoryKey, prefersSwitch } from './memory';
 import { MAX_FREQUENT, frequentItems, type StaleTab, staleTabs } from './newtab-extras';
 import { REPLACED } from './newtab-focus';
@@ -38,6 +39,7 @@ function start(): void {
   panel.querySelector('.search')!.after(chips);
 
   let frequent: Item[] = [];
+  let chipIcons: IconMap = {};
   let ctx: Context = {};
   let memory: Memory | undefined;
 
@@ -55,10 +57,17 @@ function start(): void {
       ctx = { currentTabId: tab?.id, currentWindowId: tab?.windowId, blankTab: true };
       memory = loaded;
       frequent = frequentItems(loaded, items, Date.now());
+      const known = await cachedIcons(items.map((i) => i.url));
+      chipIcons = known;
       renderChips();
+      void loadIcons(frequent.map((i) => i.url)).then((found) => {
+        chipIcons = { ...chipIcons, ...found };
+        renderChips();
+      });
       renderStale(staleTabs(tabs, Date.now(), ownPages));
-      return { items, ctx, memory: loaded };
+      return { items, ctx, memory: loaded, icons: known };
     },
+    icons: loadIcons,
     remember(event) {
       void chrome.runtime.sendMessage({ type: 'record', event } satisfies OverlayRequest);
     },
@@ -90,7 +99,7 @@ function start(): void {
         name.textContent = item.titles[0]!;
         const key = document.createElement('kbd');
         key.textContent = `⌥${i + 1}`;
-        chip.append(renderTile(item), name, key);
+        chip.append(renderTile(item, chipIcons[item.url]), name, key);
         chip.addEventListener('click', () => openFrequent(item));
         return chip;
       }),
@@ -166,8 +175,9 @@ function setUpStale(input: HTMLInputElement, reload: () => void): void {
     button.append(count, ' untouched for a week · Review');
   };
 
-  button.addEventListener('click', () => {
+  button.addEventListener('click', async () => {
     const now = Date.now();
+    const icons = await loadIcons(stale.map((t) => t.url)).catch((): IconMap => ({}));
     list.replaceChildren(
       ...stale.map((t, i) => {
         const row = document.createElement('li');
@@ -183,7 +193,7 @@ function setUpStale(input: HTMLInputElement, reload: () => void): void {
           className: 'age',
           textContent: `${Math.floor((now - t.lastAccessed) / DAY_MS)} days`,
         });
-        const tile = renderTile({ id: '', kind: 'tab', titles: [t.title], url: t.url, tabs: [], similarTabs: [] });
+        const tile = renderTile({ id: '', kind: 'tab', titles: [t.title], url: t.url, tabs: [], similarTabs: [] }, icons[t.url]);
         label.append(box, tile, text, age);
         row.append(label);
         return row;

@@ -10,7 +10,8 @@
     "bookmarks",
     "activeTab",
     "scripting",
-    "storage"
+    "storage",
+    "favicon"
   ],
   "action": {
     "default_title": "Summon",

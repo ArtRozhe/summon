@@ -2,6 +2,7 @@
 // overlay can't run (chrome://, Web Store, PDF viewer).
 import { execute } from './actions';
 import { buildItems } from './data';
+import { cachedIcons, loadIcons } from './favicons';
 import type { OverlayRequest } from './background';
 import { loadMemory } from './storage';
 import type { Context } from './types';
@@ -39,8 +40,10 @@ const { input } = mountPanel(panel, {
     ]);
     const ownPages = chrome.runtime.getURL('');
     const otherTabs = tabs.filter((t) => !(t.url || t.pendingUrl || '').startsWith(ownPages));
-    return { items: buildItems(otherTabs, tree), ctx, memory };
+    const items = buildItems(otherTabs, tree);
+    return { items, ctx, memory, icons: await cachedIcons(items.map((i) => i.url)) };
   },
+  icons: loadIcons,
   remember(event) {
     // The background worker is the only writer; the message is out before the popup closes.
     void chrome.runtime.sendMessage({ type: 'record', event } satisfies OverlayRequest);

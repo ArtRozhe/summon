@@ -28,7 +28,7 @@ function fixturePage(title: string, inlineScript: boolean): string {
   const cards = ['#ff6b6b', '#ffd166', '#06d6a0', '#118ab2', '#8338ec', '#ef476f']
     .map((c, i) => `<div style="background:${c}">Card ${i + 1}</div>`)
     .join('');
-  return `<!doctype html><meta charset="utf-8"><title>${t}</title>
+  return `<!doctype html><meta charset="utf-8"><title>${t}</title><link rel="icon" href="/favicon.svg">
 <style>
   body { margin: 0; font: 16px/1.5 system-ui; color: #222; background: #fafafa; }
   @media (prefers-color-scheme: dark) { body { color: #ddd; background: #16161a; } }
@@ -48,12 +48,19 @@ ${inlineScript ? '<script>window.__pageKeys = 0; document.addEventListener("keyd
  * touching the network. Fixtures use `.test` hosts: real ones like github.com are
  * HSTS-preloaded and would be forced to https. Titles come from `titles`, keyed by host + path.
  * Paths starting with `/csp` are served with a strict Content-Security-Policy (no inline styles or scripts).
+ * `/favicon.svg` gives every host a site icon, except `noicon.*` hosts.
  */
 function startServer(titles: Map<string, string>): Promise<Server> {
   const server = createServer((req, res) => {
     const path = req.url?.split(/[?#]/)[0] ?? '/';
     const key = `${req.headers.host}${path}`;
     const title = titles.get(key) ?? key;
+    if (path === '/favicon.svg') {
+      // Every host has an icon except `noicon.*`, which keeps its letter tile.
+      if (req.headers.host?.startsWith('noicon.')) return void res.writeHead(404).end();
+      res.writeHead(200, { 'content-type': 'image/svg+xml' });
+      return void res.end('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><rect width="32" height="32" rx="6" fill="#e8590c"/><circle cx="16" cy="16" r="7" fill="#fff"/></svg>');
+    }
     const strict = path.startsWith('/csp');
     res.writeHead(200, {
       'content-type': 'text/html; charset=utf-8',

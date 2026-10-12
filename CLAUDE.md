@@ -63,6 +63,13 @@ User-facing docs, run instructions and the manual checklist are in `README.md`; 
   with ⌥↵. Agreed next step: learn per bookmark when ⌥↵ is used (roadmap item 1). Origin alone is too coarse
   (all github.com / docs.google.com bookmarks would look open).
 - Tab choice among duplicates: current tab → current window → most recently used.
+- **Tab actions** (`tabFor` = the tab Enter would switch to; bookmarks only where open): ⌘K opens an actions menu in
+  place of the results (variant "A" of two rendered; header row = the result, Esc back to the same row): the Enter /
+  ⌥↵ / ⇧↵ actions, Move to this window (tab in another window), Move to / Open in new window, Copy URL (⌘C), Close tab
+  (⇧⌘⌫). Riskier commands get harder chords (user's rule): close is ⇧⌘⌫, not ⌘⌫ (that also clears the field). Close
+  keeps the panel open on the same row; ⌘Z reopens via `tabs.create` at the old window/index (no `sessions`, history
+  lost). Keys by `e.code` (any layout). Copy: async clipboard where available, else hidden field + `execCommand`
+  (plain-http pages have no `navigator.clipboard`; E2E pastes it back). ⌘M / ⌘N / ⌘T / ⌘W are taken by macOS/Chrome.
 - Duplicate bookmarks collapse by `new URL(u).href`.
 - Empty query = recent tabs (all windows, minus current), so shortcut → Enter = previous tab.
 - Bookmarklets (`javascript:`) are skipped.
@@ -164,7 +171,7 @@ Done: MVP, CamelHumps search, open/similar rule (⌥↵), in-page overlay with p
 lavender accents.
 New tab page (focused search, blank-tab behavior, frequent chips with ⌥1…⌥6, clock, stale tabs), tried by the user
 in Chrome and merged. Unit 94/94, E2E 28/28.
-Site icons (favicons) in all shells. E2E 31/31.
+Site icons (favicons) in all shells. Tab actions (⌘K menu, ⌘C, ⇧⌘⌫ + ⌘Z). Unit 95/95, E2E 35/35.
 Pending: rest of the README manual checklist in real Chrome — shortcut with focus in the address bar, sites with
 their own shortcuts (GitHub, Google Docs, Jira), restricted pages (chrome://settings, Web Store, PDF). What the user
 used day to day works. Claude in Chrome can't open chrome:// or extension pages, so it can't drive Summon itself.

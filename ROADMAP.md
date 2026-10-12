@@ -4,10 +4,10 @@ Ordered by value for the core flow (shortcut → a few letters → Enter). Top-d
 
 ## Next — more capability
 
-1. **New tab page** — core done (branch `newtab`): focused search on ⌘T via the worker's tab swap, blank-tab
-   behavior. Left: local-only extras — frequent picks (from memory), stale tabs to close in one go, clock; a way to
-   turn the page off (it replaces Chrome's own new tab: tiles, "Customize Chrome") — a settings page, or a separate
-   small extension from the same code. Not available in incognito.
+1. **New tab page** — done on branch `newtab`: focused search on ⌘T via the worker's tab swap, blank-tab behavior,
+   frequent chips (⌥1…⌥6), clock, tabs untouched for a week. Left: a way to turn the page off (it replaces Chrome's own
+   new tab: tiles, "Customize Chrome") — a settings page, or a separate small extension from the same code. Not
+   available in incognito.
 2. **Address bar search** via `chrome.omnibox`: type `s`, Tab, then the query; suggestions come from tabs and
    bookmarks. Focus is already in the address bar after ⌘T, no install warning. Plainer UI (suggestion rows only).
 3. **Real favicons** via the `favicon` permission. Icons come from Chrome's local cache, no network requests.

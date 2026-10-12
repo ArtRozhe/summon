@@ -67,4 +67,38 @@ describe('new tab page', () => {
     await page.waitForSelector('.row');
     expect(await page.$eval('.query', (e) => (e as HTMLInputElement).value)).toBe('');
   });
+
+  it('shows frequent picks as chips; ⌥1 opens the first in place', async () => {
+    await seed(h, [], [
+      { title: 'KitDev', url: 'http://kit.test/dev' },
+      { title: 'AppDev1', url: 'http://app.test/' },
+    ]);
+    const now = Date.now();
+    await h.control.evaluate(async (now) => {
+      const pick = (n: number) => ({ n, weight: n, last: now });
+      await chrome.storage.local.set({
+        memory: { version: 1, picks: { kd: { 'http://kit.test/dev': pick(3) }, ad: { 'http://app.test/': pick(2) } }, similar: {} },
+      });
+    }, now);
+    const { page, tabId } = await openNewTab();
+    await page.waitForSelector('.chip');
+    expect(await page.$$eval('.chip .chip-name', (els) => els.map((e) => e.textContent))).toEqual(['KitDev', 'AppDev1']);
+    expect(await page.$eval('.clock time', (e) => e.textContent)).toMatch(/\d/);
+    await page.emulateMediaFeatures([{ name: 'prefers-color-scheme', value: 'light' }]);
+    await page.screenshot({ path: `${RESULTS_DIR}/newtab-extras-light.png` });
+    await page.emulateMediaFeatures([{ name: 'prefers-color-scheme', value: 'dark' }]);
+    await page.screenshot({ path: `${RESULTS_DIR}/newtab-extras-dark.png` });
+
+    // Chips step aside while searching.
+    await page.keyboard.type('k');
+    expect(await page.$eval('.chips', (e) => (e as HTMLElement).hidden)).toBe(true);
+    await page.keyboard.press('Escape');
+
+    await page.keyboard.down('Alt');
+    await page.keyboard.press('Digit1');
+    await page.keyboard.up('Alt');
+    const s = await settledState(h, (s) => s.urls.includes('http://kit.test/dev'));
+    expect(s.tabCount).toBe(1);
+    expect(s.activeTabId).toBe(tabId);
+  });
 });

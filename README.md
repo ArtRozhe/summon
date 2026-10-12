@@ -19,6 +19,14 @@ An empty query lists recently used tabs, so shortcut → Enter jumps back to the
 Enter works too. There the new tab itself is the "current tab": Enter on a bookmark opens it in that tab, switching to
 another tab closes the empty one (⌘T → Enter = back to the previous tab), Esc clears the field.
 
+Around the search on the new tab page:
+- **Frequent picks** as chips under the field — the results you pick most often across all searches (from what
+  Summon has learned, below). **Option+1…6** opens one without typing; the chips step aside while you search.
+- **Clock** and date.
+- **Tabs untouched for a week** (not pinned, not playing sound): "N tabs untouched for a week · Review" at the bottom
+  opens the list, everything checked; close the checked ones in one go, then **Undo** for 10 seconds reopens them
+  (as fresh tabs: their back/forward history is gone).
+
 A bookmark is **open** in a tab with the same origin and path where every query parameter of the bookmark is present
 with the same value (extra parameters are fine) and, if the bookmark has a hash, the same hash. So a translator bookmark
 with `sl=ru&tl=en` is open in a tab that also has `text=…`, but not in one translating the other way.
@@ -73,6 +81,7 @@ so a few checks stay manual:
 - [ ] On a regular page the shortcut shows the panel at once, centered, with focus in the field — also when the
       address bar had focus.
 - [ ] On `chrome://settings`, the Chrome Web Store and a PDF the popup opens instead.
+- [ ] On the new tab page Option+1 opens the first frequent chip (not typing "¡" into the field).
 - [ ] ⌘T shows Summon's new tab with focus in the field (typing right away goes into the field, not the address bar);
       a new window (⌘N) too.
 - [ ] Typing in the panel doesn't trigger the site's own shortcuts (GitHub, Google Docs, Jira).

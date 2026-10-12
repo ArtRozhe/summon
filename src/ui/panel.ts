@@ -72,7 +72,7 @@ export function shortUrl(url: string): string {
 }
 
 /** Site tile: the domain's first letter on a hue derived from the domain, so a site keeps its color. */
-function renderTile(item: Item): HTMLSpanElement {
+export function renderTile(item: Item): HTMLSpanElement {
   let host = '';
   try {
     host = new URL(item.url).hostname.replace(/^www\./, '');
@@ -193,7 +193,7 @@ function pickFile(shell: PanelShell): Promise<File | null> {
  * Wires the search panel inside `panel` (which already contains PANEL_MARKUP).
  * Returns once the markup is live; data loads in the background.
  */
-export function mountPanel(panel: HTMLElement, shell: PanelShell): { input: HTMLInputElement } {
+export function mountPanel(panel: HTMLElement, shell: PanelShell): { input: HTMLInputElement; reload(): void } {
   const input = panel.querySelector<HTMLInputElement>('.query')!;
   const list = panel.querySelector<HTMLUListElement>('.results')!;
   const status = panel.querySelector<HTMLElement>('.status')!;
@@ -376,23 +376,27 @@ export function mountPanel(panel: HTMLElement, shell: PanelShell): { input: HTML
     input.focus();
   });
 
-  const loadingTimer = setTimeout(() => setStatus('Loading…'), LOADING_DELAY_MS);
-  shell
-    .load()
-    .then(
-      (data) => {
-        ctx = data.ctx;
-        memory = data.memory;
-        prepared = data.items.map(prepare);
-        ready = true;
-        update();
-        shell.loaded?.();
-      },
-      (error: unknown) => {
-        setStatus(`Couldn’t read tabs or bookmarks: ${error instanceof Error ? error.message : String(error)}`, true);
-      },
-    )
-    .finally(() => clearTimeout(loadingTimer));
+  /** Reads tabs, bookmarks and memory (again), keeping what is typed. */
+  function reload(): void {
+    const loadingTimer = setTimeout(() => setStatus('Loading…'), LOADING_DELAY_MS);
+    shell
+      .load()
+      .then(
+        (data) => {
+          ctx = data.ctx;
+          memory = data.memory;
+          prepared = data.items.map(prepare);
+          ready = true;
+          update();
+          shell.loaded?.();
+        },
+        (error: unknown) => {
+          setStatus(`Couldn’t read tabs or bookmarks: ${error instanceof Error ? error.message : String(error)}`, true);
+        },
+      )
+      .finally(() => clearTimeout(loadingTimer));
+  }
+  reload();
 
-  return { input };
+  return { input, reload };
 }

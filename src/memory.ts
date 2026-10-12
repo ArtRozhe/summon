@@ -17,6 +17,8 @@ const EXACT_BONUS_PER_PICK = 15;
 const EXACT_BONUS_MAX = 30;
 const PREFIX_BONUS_PER_PICK = 5;
 const PREFIX_BONUS_MAX = 10;
+/** Frequent (new tab page): about two recent picks' worth, so a one-off doesn't show up. */
+const FREQUENT_MIN_WEIGHT = 1.5;
 
 export interface Pick {
   /** Times picked. */
@@ -173,6 +175,15 @@ export function learnedForAny(memory: Memory, queries: string[], now: number): L
   const bonus = new Map<string, number>();
   for (const learned of all) for (const [key, value] of learned.bonus) bonus.set(key, Math.max(bonus.get(key) ?? 0, value));
   return { pinned: all.find((l) => l.pinned)?.pinned, bonus };
+}
+
+/** Result keys by how often they are picked overall (decayed weight summed over all queries), heaviest first. */
+export function frequent(memory: Memory, now: number): string[] {
+  const total = new Map<string, number>();
+  for (const items of Object.values(memory.picks)) {
+    for (const [key, pick] of Object.entries(items)) total.set(key, (total.get(key) ?? 0) + weightAt(pick, now));
+  }
+  return [...total].filter(([, w]) => w >= FREQUENT_MIN_WEIGHT).sort((a, b) => b[1] - a[1]).map(([key]) => key);
 }
 
 export function prefersSwitch(memory: Memory, key: string): boolean {

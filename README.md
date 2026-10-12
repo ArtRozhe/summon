@@ -6,12 +6,19 @@ Keyboard search across open tabs and bookmarks for Chrome. One shortcut, a few l
 
 | Key | Tab result | Bookmark result |
 |---|---|---|
-| Enter | Switch to the tab (and its window) | Switch to it if the URL is already open, otherwise open in a new tab |
+| Enter | Switch to the tab (and its window) | Switch to it if the bookmark is open, otherwise open in a new tab |
 | Shift+Enter | Switch to the tab | Open in the current tab |
+| Option+Enter | Switch to the tab | Switch to a *similar* open tab — the same site under the bookmark's path, other parameters |
 | ↑ / ↓ | Move selection | |
 | Esc | Close | |
 
 An empty query lists recently used tabs, so shortcut → Enter jumps back to the previous tab.
+
+A bookmark is **open** in a tab with the same origin and path where every query parameter of the bookmark is present
+with the same value (extra parameters are fine) and, if the bookmark has a hash, the same hash. So a translator bookmark
+with `sl=ru&tl=en` is open in a tab that also has `text=…`, but not in one translating the other way.
+A tab of the same origin at or below the bookmark's path with other parameters is **similar** ("Similar open"):
+handy for apps that keep their state in the URL — Option+Enter jumps into the running app instead of opening it again.
 
 ## Run locally
 
@@ -64,9 +71,17 @@ and is read fresh each time it opens.
 ## How search works
 
 Each word of the query must match the title, the domain or the URL path (case-insensitive). Stronger matches rank higher:
-whole word or domain label > start of title/domain > start of a word > initials > substring > URL path.
-Open tabs win ties, then recently used ones.
+whole word or domain label > all initials > start of title/domain > word starts from the first word > start of a word >
+word starts with skipped words > substring within a word > URL path. Open tabs win ties, then recently used ones.
 
-Initials come from multi-word and camel-cased titles: `gh` → GitHub, `gd` → Google Docs, `so` → Stack Overflow.
-They need the name in the page title — a domain alone (`github.com`) has no word boundaries, and arbitrary
+Titles split into words at spaces, punctuation, camel case and digits (`AppDev1` → app, dev, 1; a plural acronym
+like `PRs` stays whole), so camel-cased bookmark names work as abbreviations, like CamelHumps in JetBrains IDEs:
+
+| Query | Finds | How |
+|---|---|---|
+| `kd`, `ad1` | KitDev, AppDev1 | all initials |
+| `apd1`, `gtrans` | AppDev1, GoogleTranslate… | several letters per word, from the first word |
+| `ad` | AppDev1, AppDev2, then AppInfraDeploy | words may be skipped, ranked lower |
+
+They need the name in the title — a domain alone (`github.com`) has no word boundaries, and arbitrary
 abbreviations (`fb` → Meta) are not supported.

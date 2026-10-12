@@ -3,3 +3,6 @@ dist/
 test-results/
 .idea/
 .DS_Store
+
+# Personal local data (e.g. bookmark exports), never published
+local/

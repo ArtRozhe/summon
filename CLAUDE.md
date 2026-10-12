@@ -20,19 +20,31 @@ User-facing docs, run instructions and the manual checklist are in `README.md`; 
 
 ## Behavior decisions
 
-- A bookmark whose URL is open is **one merged row** (`kind: 'bookmark'`, badge "Open"): Enter switches to the tab,
+- A bookmark that is open is **one merged row** (`kind: 'bookmark'`, badge "Open"): Enter switches to the tab,
   Shift+Enter loads the URL in the current tab. Tab rows: Enter and Shift+Enter both activate.
+- "Open" (`src/data.ts` `matchTab`): same origin + path, bookmark's query params ⊆ tab's, same hash if the bookmark
+  has one. "Similar": same origin, tab path at/below the bookmark path (segment boundary), params differ — the tab
+  keeps its own row, the bookmark shows "Similar open", **⌥↵** switches to it; plain Enter stays strict.
+  Why: the user's bookmarks include apps with state in the query (environments: any state of that env should count)
+  and a translator where params are the point (RU→EN ≠ EN→RU). No URL-only rule satisfies both, so the user picks
+  with ⌥↵. Agreed next step: learn per bookmark when ⌥↵ is used (roadmap item 1). Origin alone is too coarse
+  (all github.com / docs.google.com bookmarks would look open).
 - Tab choice among duplicates: current tab → current window → most recently used.
-- URL equality = `new URL(u).href` only; query and hash are significant.
+- Duplicate bookmarks collapse by `new URL(u).href`.
 - Empty query = recent tabs (all windows, minus current), so shortcut → Enter = previous tab.
 - Bookmarklets (`javascript:`) are skipped.
 - UI text is English (chosen by me, user did not object).
 
 ## Search (`src/search.ts`)
 
-AND over tokens; per token the best of: whole word / host label 100 > title or host prefix 80 > word prefix 60 >
-initials 50 > substring 30 > path/query/hash 10. +5 open tab, −10 current tab; ties → open, recency, shorter title.
-Top 8. Initials come from title segments and camelCase words (`gh` → GitHub), not from domains.
+AND over tokens; per token the best of: whole word / host label 100 > exact initials 95 > title or host prefix 80 >
+humps from the first word 70 > word prefix 60 > humps with skipped words 45 > substring within words 30 >
+path/query/hash 10. +5 open tab, −10 current tab; ties → open, recency, shorter title. Top 8.
+Humps = CamelHumps: the user names bookmarks in PascalCase on purpose (`KitDev`, `GoogleTranslateEnglishRussian`,
+`AppDev1`) and types abbreviations (`kd`, `gter`, `ad1`, `apd1`). Words split at camel case and letter/digit
+boundaries; plural acronyms (`PRs`) stay whole. Substrings across camel words (`td` in KitDev) don't count.
+Hump sequences: whole title, each title segment, each camel word; a hump match needs ≥2 words.
+Search by folder names was considered and dropped: the user's folders are for order, names carry the abbreviations.
 Known trade-off: an exact word ("Using git rebase") beats a domain prefix (`github.com`) for `git` — lower
 `exactWord` if that annoys in practice.
 
@@ -60,6 +72,8 @@ Width 640px. For visual changes, render options from the real popup (Puppeteer) 
 
 - Personal git identity is set in the repo's local config — don't change it. Commit only when asked.
 - npm 11 install scripts allowed only for `esbuild` and `puppeteer` (`allowScripts` in `package.json`).
+- `local/` (gitignored) holds personal data such as the user's bookmark export — use it to check ranking on real
+  bookmarks, never copy its contents into the repo (tests and docs use neutral examples).
 - No UI framework, no runtime dependencies; build = esbuild bundling `src/popup.ts` + copying `static/` to `dist/`.
 
 ## Roadmap

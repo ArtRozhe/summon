@@ -40,8 +40,13 @@ User-facing docs, run instructions and the manual checklist are in `README.md`; 
 - **Background worker** is stateless: `load` (tabs + bookmarks → items, context from `sender.tab`) and `execute`
   messages from the overlay. The popup still reads data and executes itself.
 - **No cache.** Tabs and bookmarks are read fresh on every opening. Add one only if loading becomes measurably slow.
-- **Permissions: `tabs`, `bookmarks`, `activeTab`, `scripting`, `storage`.** No host permissions, no `favicon` (extra install
-  warning) — site tiles with the domain's first letter instead.
+- **Permissions: `tabs`, `bookmarks`, `activeTab`, `scripting`, `storage`, `favicon`.** No host permissions. `favicon` adds
+  no install warning next to `tabs` (documented). Icons (`src/favicons.ts`) are read from `_favicon/` in extension
+  contexts only, as data URLs; the overlay gets them from the worker (`icons` message), so `_favicon/` is not in
+  `web_accessible_resources` (that would let any site detect Summon and probe icons). Chrome's answer for an unknown
+  page (`https://summon.invalid/`) is the "no icon" baseline → letter tile. Cache in `storage.session` (`icon:<url>`,
+  "none" retried after 5 min); `load` returns the cached ones so first results show icons at once, the rest swap in.
+  `data:` images in the overlay's shadow root work under a strict page CSP (E2E).
 - **Actions dispatch all `chrome.*` calls before the first await** (`src/actions.ts`); the overlay closes itself first.
 - `minimum_chrome_version: 127` (`action.openPopup`; `Tab.lastAccessed` needs 121).
 - Summon's own extension pages are filtered out of results.
@@ -108,7 +113,8 @@ Known trade-off: an exact word ("Using git rebase") beats a domain prefix (`gith
 over our own gradient; blobs are px-sized and anchored to the top corners so the panel looks the same at any height.
 Selection = white plate + lavender ring (same violet as ✦) + ↵ drawn as a small key (like the hint line).
 ✦ (usual pick) is a soft violet from the icon (`--spark`, lighter lavender in dark). System blue and the full icon
-gradient were both too loud for small glyphs on dark glass (user's call). Site tiles: first letter of the full hostname, hue from the hostname.
+gradient were both too loud for small glyphs on dark glass (user's call). Site tiles: the favicon on a white plate (90% in dark; variant "A" of three rendered, user's pick), else the first
+letter of the full hostname, hue from the hostname.
 Width 640px.
 Match highlight (`src/highlight.ts`, `.hl`): "E" = faint violet wash + violet-leaning text. The user hesitated between
 violet text only (best for whole words) and wash only (best for single abbreviation letters); E is on trial — if it
@@ -158,6 +164,7 @@ Done: MVP, CamelHumps search, open/similar rule (⌥↵), in-page overlay with p
 lavender accents.
 New tab page (focused search, blank-tab behavior, frequent chips with ⌥1…⌥6, clock, stale tabs), tried by the user
 in Chrome and merged. Unit 94/94, E2E 28/28.
+Site icons (favicons) in all shells. E2E 31/31.
 Pending: rest of the README manual checklist in real Chrome — shortcut with focus in the address bar, sites with
 their own shortcuts (GitHub, Google Docs, Jira), restricted pages (chrome://settings, Web Store, PDF). What the user
 used day to day works. Claude in Chrome can't open chrome:// or extension pages, so it can't drive Summon itself.

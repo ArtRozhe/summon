@@ -23,6 +23,11 @@ User-facing docs, run instructions and the manual checklist are in `README.md`; 
     (enterprise policies: real-time URL check, reporting) — the delay is before the document becomes interactive,
     same with no extensions and with a second Summon tab open, so not ours to fix. Resource Timing is empty for
     extension pages.
+    Extras (`src/newtab-extras.ts`, picked by the user from rendered layouts — "C"): frequent picks as chips under the
+    field (memory `frequent`: decayed weight summed over all queries, ≥1.5, top 6, mapped to existing items, bookmark
+    over tab), ⌥1…⌥6 by `e.code` (⌥digit types symbols on a Mac), hidden while typing, chip clicks aren't recorded
+    (empty queries never are); clock (time in system format, date in English); tabs untouched ≥7 days (not pinned,
+    audible, active or ours) → review dialog → close → Undo 10 s reopens URLs (no `sessions` permission, history lost).
 - **Overlay isolation:** closed shadow root in a custom element, made a `popover` (top layer: above any z-index and
   fullscreen). Host styles via CSSOM `setProperty(..., 'important')`, panel CSS via constructed stylesheets — both work
   under a strict page CSP (E2E covers it). Keys stop propagating at the panel, so site shortcuts don't fire.
@@ -150,9 +155,9 @@ annoys, switch `.hl` in `panel.css` to one of those. For visual changes, render 
 
 Done: MVP, CamelHumps search, open/similar rule (⌥↵), in-page overlay with popup fallback, memory (usual picks ✦,
 ⌥↵ habit, export/import via `>`), wrong-layout search, match highlighting (style "E" on trial), Spark icon,
-lavender accents. Unit 89/89, E2E 27/27.
-New tab page (core: focused search, blank-tab behavior) on branch `newtab`, to be fast-forwarded into `main` after
-the user has lived with it; extras (frequent picks, stale tabs, clock) not started.
+lavender accents.
+New tab page (focused search, blank-tab behavior, frequent chips, clock, stale tabs) on branch `newtab`, to be
+fast-forwarded into `main` after the user has lived with it. Unit 94/94, E2E 28/28.
 Pending: rest of the README manual checklist in real Chrome — shortcut with focus in the address bar, sites with
 their own shortcuts (GitHub, Google Docs, Jira), restricted pages (chrome://settings, Web Store, PDF). What the user
 used day to day works. Claude in Chrome can't open chrome:// or extension pages, so it can't drive Summon itself.

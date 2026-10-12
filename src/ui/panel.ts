@@ -1,5 +1,16 @@
 import { describe, resolveAction, similarOutcome } from '../actions';
-import { emptyMemory, type Learned, learnedFor, type Memory, memoryKey, type PickEvent, prefersSwitch } from '../memory';
+import {
+  emptyMemory,
+  exportMemory,
+  type Learned,
+  learnedFor,
+  type Memory,
+  memoryKey,
+  parseExport,
+  type PickEvent,
+  prefersSwitch,
+  size,
+} from '../memory';
 import { isPinned, prepare, search, type Prepared } from '../search';
 import type { Action, Context, Item, Modifiers } from '../types';
 
@@ -15,7 +26,24 @@ export interface PanelShell {
   close(): void;
   /** Called once results are first shown (for timing diagnostics). */
   loaded?(): void;
+  /** Merges imported memory into the stored one and returns the result. Absent where a file picker can't work. */
+  importMemory?(memory: Memory): Promise<Memory>;
+  /** Keeps the panel open while the page loses focus (the file picker is open). */
+  holdOpen?(hold: boolean): void;
 }
+
+const searches = (n: number): string => `${n} ${n === 1 ? 'search' : 'searches'}`;
+
+/** Typed after ">" in the search field. */
+interface Command {
+  title: string;
+  detail: string;
+  glyph: string;
+  /** Returns the message to show. */
+  run(): Promise<string>;
+}
+
+const COMMAND_PREFIX = '>';
 
 export const PANEL_MARKUP = `
 <div class="search">
@@ -105,6 +133,43 @@ function renderRow(item: Item, index: number, ctx: Context, pinned: boolean): HT
   return li;
 }
 
+function renderCommandRow(command: Command, index: number): HTMLLIElement {
+  const li = document.createElement('li');
+  li.id = `summon-option-${index}`;
+  li.className = 'row command';
+  li.setAttribute('role', 'option');
+  li.dataset.index = String(index);
+  const tile = document.createElement('span');
+  tile.className = 'tile';
+  tile.setAttribute('aria-hidden', 'true');
+  tile.textContent = command.glyph;
+  const text = document.createElement('span');
+  text.className = 'text';
+  const title = document.createElement('span');
+  title.className = 'title';
+  title.textContent = command.title;
+  const detail = document.createElement('span');
+  detail.className = 'url';
+  detail.textContent = command.detail;
+  text.append(title, detail);
+  li.append(tile, text);
+  li.setAttribute('aria-label', `${command.title}, ${command.detail}`);
+  return li;
+}
+
+/** Lets the user pick a file; resolves to null when the picker is cancelled. */
+function pickFile(shell: PanelShell): Promise<File | null> {
+  const picker = document.createElement('input');
+  picker.type = 'file';
+  picker.accept = '.json,application/json';
+  shell.holdOpen?.(true);
+  return new Promise<File | null>((done) => {
+    picker.addEventListener('change', () => done(picker.files?.[0] ?? null), { once: true });
+    picker.addEventListener('cancel', () => done(null), { once: true });
+    picker.click();
+  }).finally(() => shell.holdOpen?.(false));
+}
+
 /**
  * Wires the search panel inside `panel` (which already contains PANEL_MARKUP).
  * Returns once the markup is live; data loads in the background.
@@ -120,6 +185,8 @@ export function mountPanel(panel: HTMLElement, shell: PanelShell): { input: HTML
   let learned: Learned | undefined;
   let prepared: Prepared[] = [];
   let results: Item[] = [];
+  /** Shown instead of results while the query starts with ">". */
+  let commands: Command[] | null = null;
   let selected = 0;
   let ready = false;
   let busy = false;
@@ -130,20 +197,61 @@ export function mountPanel(panel: HTMLElement, shell: PanelShell): { input: HTML
   }
 
   const preferSwitchFor = (item: Item | undefined): boolean => !!item && prefersSwitch(memory, memoryKey(item.url));
+  const count = (): number => (commands ? commands.length : results.length);
+
+  const allCommands: Command[] = [
+    {
+      title: 'Export Summon data',
+      detail: 'Save what Summon has learned to a JSON file in Downloads',
+      glyph: '↓',
+      async run() {
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(new Blob([exportMemory(memory, Date.now())], { type: 'application/json' }));
+        link.download = `summon-${new Date().toISOString().slice(0, 10)}.json`;
+        link.click();
+        setTimeout(() => URL.revokeObjectURL(link.href), 60_000);
+        return `Exported ${searches(size(memory))} Summon remembers`;
+      },
+    },
+    {
+      title: 'Import Summon data',
+      detail: 'Merge an exported file; fresher records win, nothing is removed',
+      glyph: '↑',
+      async run() {
+        if (!shell.importMemory) throw new Error('Import works on a regular web page — open one and try again');
+        const file = await pickFile(shell);
+        input.focus();
+        if (!file) return '';
+        memory = await shell.importMemory(parseExport(await file.text()));
+        return `Imported — Summon now remembers ${searches(size(memory))}`;
+      },
+    },
+  ];
 
   function renderHints(): void {
+    if (commands) {
+      hints.innerHTML = [
+        commands.length ? '<kbd>↵</kbd> Run' : '',
+        commands.length > 1 ? '<kbd>↑↓</kbd> Select' : '',
+        '<kbd>esc</kbd> Close',
+      ]
+        .filter(Boolean)
+        .map((p) => `<span>${p}</span>`)
+        .join('');
+      return;
+    }
     const d = describe(results[selected], ctx, preferSwitchFor(results[selected]));
     const parts = d ? [`<kbd>↵</kbd> ${d.enter}`] : [];
     if (d?.altEnter) parts.push(`<kbd>⌥↵</kbd> ${d.altEnter}`);
     if (d?.shiftEnter) parts.push(`<kbd>⇧↵</kbd> ${d.shiftEnter}`);
-    if (results.length > 1) parts.push('<kbd>↑↓</kbd> Select');
+    if (count() > 1) parts.push('<kbd>↑↓</kbd> Select');
     parts.push('<kbd>esc</kbd> Close');
     hints.innerHTML = parts.map((p) => `<span>${p}</span>`).join('');
   }
 
   function select(index: number): void {
-    if (!results.length) return;
-    selected = (index + results.length) % results.length;
+    if (!count()) return;
+    selected = (index + count()) % count();
     for (const row of list.children) {
       row.setAttribute('aria-selected', String(Number((row as HTMLElement).dataset.index) === selected));
     }
@@ -155,6 +263,19 @@ export function mountPanel(panel: HTMLElement, shell: PanelShell): { input: HTML
   function update(): void {
     if (!ready) return;
     const query = input.value;
+    if (query.trimStart().startsWith(COMMAND_PREFIX)) {
+      const filter = query.trimStart().slice(COMMAND_PREFIX.length).trim().toLowerCase();
+      commands = allCommands.filter((c) => c.title.toLowerCase().includes(filter));
+      results = [];
+      selected = 0;
+      list.replaceChildren(...commands.map(renderCommandRow));
+      input.setAttribute('aria-expanded', String(commands.length > 0));
+      setStatus(commands.length ? '' : `No command matches “${filter}”`);
+      if (commands.length) select(0);
+      else renderHints();
+      return;
+    }
+    commands = null;
     learned = learnedFor(memory, query, Date.now());
     results = search(prepared, query, ctx, learned);
     selected = 0;
@@ -171,7 +292,23 @@ export function mountPanel(panel: HTMLElement, shell: PanelShell): { input: HTML
     }
   }
 
+  async function runCommand(command: Command): Promise<void> {
+    busy = true;
+    try {
+      setStatus(await command.run());
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : String(error), true);
+    } finally {
+      busy = false;
+    }
+  }
+
   async function run(mods: Modifiers): Promise<void> {
+    if (commands) {
+      const command = commands[selected];
+      if (command && !busy) await runCommand(command);
+      return;
+    }
     const item = results[selected];
     const action = resolveAction(item, mods, ctx, preferSwitchFor(item));
     if (!item || !action || busy) return;

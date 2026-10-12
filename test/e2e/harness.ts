@@ -132,6 +132,7 @@ export async function reset(h: Harness): Promise<void> {
     const self = await chrome.tabs.getCurrent();
     const tabs = await chrome.tabs.query({});
     await Promise.all(tabs.filter((t) => t.id !== self!.id).map((t) => chrome.tabs.remove(t.id!)));
+    await chrome.storage.local.clear();
     for (const root of await chrome.bookmarks.getChildren('0')) {
       for (const child of await chrome.bookmarks.getChildren(root.id)) await chrome.bookmarks.removeTree(child.id);
     }

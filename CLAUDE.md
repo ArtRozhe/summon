@@ -23,8 +23,8 @@ User-facing docs, run instructions and the manual checklist are in `README.md`; 
   see the page).
 - **Background worker** is stateless: `load` (tabs + bookmarks → items, context from `sender.tab`) and `execute`
   messages from the overlay. The popup still reads data and executes itself.
-- **No cache.** Data is read fresh on every opening. Add one only if loading becomes measurably slow.
-- **Permissions: `tabs`, `bookmarks`, `activeTab`, `scripting`.** No host permissions, no `favicon` (extra install
+- **No cache.** Tabs and bookmarks are read fresh on every opening. Add one only if loading becomes measurably slow.
+- **Permissions: `tabs`, `bookmarks`, `activeTab`, `scripting`, `storage`.** No host permissions, no `favicon` (extra install
   warning) — site tiles with the domain's first letter instead.
 - **Actions dispatch all `chrome.*` calls before the first await** (`src/actions.ts`); the overlay closes itself first.
 - `minimum_chrome_version: 127` (`action.openPopup`; `Tab.lastAccessed` needs 121).
@@ -46,6 +46,24 @@ User-facing docs, run instructions and the manual checklist are in `README.md`; 
 - Empty query = recent tabs (all windows, minus current), so shortcut → Enter = previous tab.
 - Bookmarklets (`javascript:`) are skipped.
 - UI text is English (chosen by me, user did not object).
+
+## Memory (`src/memory.ts`, `src/storage.ts`)
+
+- `storage.local` key `memory`: `{ version: 1, picks: query → url → { n, weight, last }, similar: url → habit }`.
+  Result identity = URL (`memoryKey`), tab ids don't survive restarts. Queries normalized (case, spaces).
+- Weight decays (half-life 7 days, updated on write). **Pinned first** (✦ via CSS `::before`, not in the title text):
+  ≥2 picks, weight ≥1.5, ≥2× the runner-up, exact query only. Others: bonus ≤30 exact, ≤10 from longer stored queries
+  starting with this one. Learning only reorders matches. Limits: 500 queries × 5 results, 500 habits.
+- ⌥↵ habit: last two outcomes equal → `preferSwitch` flips (Enter switches to a similar tab, ⌥↵ opens anew).
+  Recorded only when the bookmark had similar tabs and no exact one, without Shift.
+- **Single writer: the background worker** (`record`, `import` messages, serialized). The popup reads storage itself
+  but sends picks to the worker. Unknown/broken stored data → empty, never a crash.
+- Export/import: commands after `>` in the field (no settings page). Export = JSON download via a blob link (no
+  `downloads` permission). Import merges (later `last` wins). Overlay keeps itself open while the file picker has
+  focus (`holdOpen`); the popup refuses import (a file dialog closes the popup).
+- Extension ID pinned by `key` in the manifest (public key only; the private key wasn't kept — not needed unpacked):
+  `jkoklgjjpogkefkdfbfknllnjihelmfb`. E2E reloads the extension by loading the folder again (`chrome.runtime.reload()`
+  doesn't come back under Puppeteer) and checks the old context really died.
 
 ## Search (`src/search.ts`)
 
@@ -100,6 +118,6 @@ Width 640px. For visual changes, render options from the real popup (Puppeteer) 
 
 ## Status (2026-10-12)
 
-MVP + CamelHumps search + open/similar rule + in-page overlay with popup fallback. Unit 49/49, E2E 18/18.
-Pending: the user's manual checklist from README in real Chrome (shortcut, focus from the address bar, site shortcuts,
-restricted pages). Claude in Chrome can't open chrome:// or extension pages, so it can't drive Summon itself.
+MVP + CamelHumps search + open/similar rule + in-page overlay with popup fallback + memory (usual picks, ⌥↵ habit,
+export/import). Unit 70/70, E2E 23/23. Pending: the user's manual checklist from README in real Chrome.
+Claude in Chrome can't open chrome:// or extension pages, so it can't drive Summon itself.

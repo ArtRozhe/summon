@@ -1,3 +1,4 @@
+import { mkdir, readdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import {
   type Harness,
@@ -44,7 +45,8 @@ async function press(panel: Panel, key: 'Enter' | 'Escape', modifier?: 'Shift' |
 async function search(panel: Panel, query: string): Promise<void> {
   await panel.page.keyboard.type(query);
   for (let i = 0; i < 50; i++) {
-    if ((await panel.query((root) => (root.querySelector('.query') as HTMLInputElement).value)) === query) return;
+    // Typing appends, so the field ends with what was typed.
+    if ((await panel.query((root) => (root.querySelector('.query') as HTMLInputElement).value)).endsWith(query)) return;
     await new Promise((r) => setTimeout(r, 20));
   }
   throw new Error(`Query never became "${query}"`);
@@ -438,5 +440,87 @@ describe('learned ⌥↵', () => {
     const s = await settledState(h, (s) => s.activeTabId === app);
     expect(s.activeTabId).toBe(app);
     expect(s.tabCount).toBe(2);
+  });
+});
+
+describe('export and import', () => {
+  const APPS = [
+    { title: 'AppDev1', url: 'http://dev1.app.test/' },
+    { title: 'AppDev2', url: 'http://dev2.app.test/' },
+  ];
+
+  async function command(panel: Panel, query: string): Promise<void> {
+    await search(panel, query);
+    expect(await text(panel, '.results .title')).toBe(query.includes('export') ? 'Export Summon data' : 'Import Summon data');
+    expect(await titles(panel)).toHaveLength(1);
+  }
+
+  it('exports to a file that imports back into an empty Summon', async () => {
+    const downloads = `${RESULTS_DIR}/downloads`;
+    await rm(downloads, { recursive: true, force: true });
+    await mkdir(downloads, { recursive: true });
+    const cdp = await h.browser.target().createCDPSession();
+    await cdp.send('Browser.setDownloadBehavior', { behavior: 'allow', downloadPath: downloads });
+
+    // Learn something, then export it.
+    const [here] = await seed(h, [{ url: 'http://blank.test/', title: 'Blank' }], APPS);
+    await h.control.evaluate(
+      (memory) => chrome.storage.local.set({ memory }),
+      { version: 1, similar: {}, picks: { ad: { 'http://dev2.app.test/': { n: 3, weight: 3, last: Date.now() } } } },
+    );
+    let panel = await openPanel(h, here!);
+    await search(panel, '>');
+    await screenshot(panel, 'commands');
+    await command(panel, ' export');
+    await press(panel, 'Enter');
+    expect(await text(panel, '.status')).toBe('Exported 1 search Summon remembers');
+    let file = '';
+    for (let i = 0; i < 50 && !file; i++) {
+      file = (await readdir(downloads)).find((f) => f.startsWith('summon-') && f.endsWith('.json')) ?? '';
+      if (!file) await new Promise((r) => setTimeout(r, 100));
+    }
+    const exported = JSON.parse(await readFile(`${downloads}/${file}`, 'utf8'));
+    expect(exported.format).toBe('summon-memory');
+    await press(panel, 'Escape');
+    await waitClosed(panel);
+
+    // Forget everything, then import the file.
+    await h.control.evaluate(() => chrome.storage.local.clear());
+    panel = await openPanel(h, here!);
+    await command(panel, '> import');
+    const [chooser] = await Promise.all([panel.page.waitForFileChooser(), press(panel, 'Enter')]);
+    await chooser.accept([`${downloads}/${file}`]);
+    for (let i = 0; i < 50 && !(await text(panel, '.status')).startsWith('Imported'); i++) await new Promise((r) => setTimeout(r, 50));
+    expect(await text(panel, '.status')).toBe('Imported — Summon now remembers 1 search');
+    expect(await panel.isOpen()).toBe(true);
+
+    await panel.page.keyboard.press('Escape');
+    await waitClosed(panel);
+    panel = await openPanel(h, here!);
+    await search(panel, 'ad');
+    expect(await titles(panel)).toEqual(['AppDev2', 'AppDev1']);
+  });
+
+  it('rejects a file that is not a Summon export', async () => {
+    const bad = `${RESULTS_DIR}/not-summon.json`;
+    await writeFile(bad, '{"hello": "world"}');
+    const [here] = await seed(h, [{ url: 'http://blank.test/', title: 'Blank' }]);
+    const panel = await openPanel(h, here!);
+    await command(panel, '> import');
+    const [chooser] = await Promise.all([panel.page.waitForFileChooser(), press(panel, 'Enter')]);
+    await chooser.accept([bad]);
+    for (let i = 0; i < 50 && !(await text(panel, '.status')); i++) await new Promise((r) => setTimeout(r, 50));
+    expect(await text(panel, '.status')).toBe('This is not a Summon export');
+  });
+
+  it('explains that import needs a regular page in the popup', async () => {
+    await seed(h, [{ url: 'http://blank.test/', title: 'Blank' }]);
+    const restricted = await h.control.evaluate(async () => (await chrome.tabs.create({ url: 'chrome://version/' })).id!);
+    await new Promise((r) => setTimeout(r, 300));
+    const panel = await openPanel(h, restricted);
+    expect(panel.kind).toBe('popup');
+    await command(panel, '> import');
+    await press(panel, 'Enter');
+    expect(await text(panel, '.status')).toContain('Import works on a regular web page');
   });
 });

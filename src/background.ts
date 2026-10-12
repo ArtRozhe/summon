@@ -1,6 +1,6 @@
 import { execute } from './actions';
 import { buildItems } from './data';
-import { type Memory, type PickEvent, record } from './memory';
+import { type Memory, merge, type PickEvent, record } from './memory';
 import { loadMemory, saveMemory } from './storage';
 import type { Action, Context, Item } from './types';
 
@@ -35,7 +35,8 @@ async function openPopupFallback(tab: chrome.tabs.Tab): Promise<void> {
 export type OverlayRequest =
   | { type: 'load' }
   | { type: 'execute'; action: Action }
-  | { type: 'record'; event: PickEvent };
+  | { type: 'record'; event: PickEvent }
+  | { type: 'import'; memory: Memory };
 export interface LoadResponse {
   items: Item[];
   ctx: Context;
@@ -56,8 +57,12 @@ async function load(sender: chrome.runtime.MessageSender): Promise<LoadResponse>
 
 /** The only writer of memory (both shells send their picks here); writes run one after another. */
 let writes: Promise<unknown> = Promise.resolve();
-function remember(event: PickEvent): Promise<void> {
-  const write = writes.then(async () => saveMemory(record(await loadMemory(), event, Date.now())));
+function update(change: (memory: Memory) => Memory): Promise<Memory> {
+  const write = writes.then(async () => {
+    const next = change(await loadMemory());
+    await saveMemory(next);
+    return next;
+  });
   writes = write.catch(() => {});
   return write;
 }
@@ -67,8 +72,10 @@ chrome.runtime.onMessage.addListener((message: OverlayRequest, sender, respond) 
     message.type === 'load'
       ? load(sender)
       : message.type === 'record'
-        ? remember(message.event)
-        : execute(message.action, contextOf(sender));
+        ? update((memory) => record(memory, message.event, Date.now()))
+        : message.type === 'import'
+          ? update((memory) => merge(memory, message.memory, Date.now()))
+          : execute(message.action, contextOf(sender));
   work.then(
     (result) => respond({ ok: true, result }),
     (error: unknown) => respond({ ok: false, error: error instanceof Error ? error.message : String(error) }),

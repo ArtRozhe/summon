@@ -167,3 +167,51 @@ export function learnedFor(memory: Memory, rawQuery: string, now: number): Learn
 export function prefersSwitch(memory: Memory, key: string): boolean {
   return memory.similar[key]?.preferSwitch ?? false;
 }
+
+/**
+ * Combines imported memory with the current one. Nothing is dropped: for a result or a bookmark known on
+ * both sides the more recent record wins, so importing an old backup can't overwrite fresher habits.
+ */
+export function merge(current: Memory, imported: Memory, now: number): Memory {
+  const picks: Memory['picks'] = { ...current.picks };
+  for (const [query, items] of Object.entries(imported.picks)) {
+    const merged = { ...picks[query] };
+    for (const [key, pick] of Object.entries(items)) {
+      const mine = merged[key];
+      if (!mine || pick.last > mine.last) merged[key] = pick;
+    }
+    picks[query] = merged;
+  }
+  const similar: Memory['similar'] = { ...current.similar };
+  for (const [key, habit] of Object.entries(imported.similar)) {
+    const mine = similar[key];
+    if (!mine || habit.last > mine.last) similar[key] = habit;
+  }
+  return prune({ version: MEMORY_VERSION, picks, similar }, now);
+}
+
+/** Number of searches remembered, for messages. */
+export function size(memory: Memory): number {
+  return Object.keys(memory.picks).length;
+}
+
+export const EXPORT_FORMAT = 'summon-memory';
+
+export function exportMemory(memory: Memory, now: number): string {
+  return JSON.stringify({ format: EXPORT_FORMAT, exportedAt: new Date(now).toISOString(), memory }, null, 2);
+}
+
+/** Parses an export file; throws a readable error for anything else. */
+export function parseExport(text: string): Memory {
+  let data: unknown;
+  try {
+    data = JSON.parse(text);
+  } catch {
+    throw new Error('This is not a Summon export (not JSON)');
+  }
+  const file = data as { format?: string; memory?: unknown };
+  if (file?.format !== EXPORT_FORMAT) throw new Error('This is not a Summon export');
+  const memory = migrate(file.memory);
+  if (!size(memory) && !Object.keys(memory.similar).length) throw new Error('The export is empty or from a newer Summon');
+  return memory;
+}

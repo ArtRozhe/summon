@@ -10,6 +10,7 @@ Keyboard search across open tabs and bookmarks for Chrome. One shortcut, a few l
 | Shift+Enter | Switch to the tab | Open in the current tab |
 | Option+Enter | Switch to the tab | Switch to a *similar* open tab — the same site under the bookmark's path, other parameters |
 | ↑ / ↓ | Move selection | |
+| `>` | Commands: export / import what Summon has learned | |
 | Esc | Close | |
 
 An empty query lists recently used tabs, so shortcut → Enter jumps back to the previous tab.
@@ -74,8 +75,9 @@ so a few checks stay manual:
 - `tabs` — read titles and URLs of open tabs. Chrome shows "Read your browsing history" at install.
 - `bookmarks` — read bookmarks. Chrome shows "Read and change your bookmarks"; Summon never changes them.
 - `activeTab` + `scripting` — draw the panel inside the current page, only when you invoke Summon. No install warning.
+- `storage` — remember your picks (below), on this computer only. No install warning.
 
-No host permissions, network requests or storage. Data is read fresh each time the panel opens.
+No host permissions or network requests. Tabs and bookmarks are read fresh each time the panel opens.
 
 ## How the panel opens
 
@@ -83,6 +85,22 @@ On regular pages the panel is drawn **inside the page**, over it, so it appears 
 new browser process each time and can take about a second. It lives in a closed shadow root, out of reach of the
 page's scripts and styles; the page shows through it blurred. Where extensions can't run scripts (`chrome://` pages,
 the Chrome Web Store, PDFs, the New Tab page) the same panel opens as the toolbar popup instead.
+
+## What Summon learns
+
+Summon remembers which result you pick for a search. A result you picked at least twice for the same search — and
+clearly more often than anything else — comes first, marked with ✦; other past picks get a boost, and a longer search
+you used (`ad1`) helps its beginning (`ad`). Picks fade over a few weeks, so a new habit soon wins over an old one.
+Learning only reorders results that match; it never shows something that doesn't.
+
+For a bookmark of an app that is open in a *similar* tab, pressing Option+Enter twice in a row makes plain Enter switch
+to that tab from then on (Option+Enter then opens the bookmark anew); two opposite choices switch it back.
+The hint line always says what each key will do.
+
+The data stays in Chrome's local extension storage on this computer. It survives updates and moving the project
+folder (the extension ID is pinned in the manifest) and is deleted when the extension is removed — type `>` and use
+**Export Summon data** for a backup and **Import Summon data** to merge one back (fresher records win, nothing is
+removed). Import needs a regular web page: in the toolbar popup the file picker would close the popup.
 
 ## How search works
 

@@ -190,3 +190,8 @@ kbd {
   font-size: 12px;
   vertical-align: 1px;
 }
+
+.row.command .tile {
+  background: linear-gradient(180deg, #8b8b96, #6b6b75);
+  font-size: 16px;
+}

@@ -47,6 +47,8 @@ function createOverlay(): NonNullable<typeof globalThis.__summonOverlay> {
   let root: ShadowRoot | null = null;
   let previousFocus: Element | null = null;
   let stopListening = (): void => {};
+  /** While the file picker is open the page loses focus; that must not close the panel. */
+  let holdOpen = false;
 
   function close(): void {
     if (!host) return;
@@ -80,9 +82,11 @@ function createOverlay(): NonNullable<typeof globalThis.__summonOverlay> {
       if (e.target === backdrop) close();
     });
     // Like Spotlight: leaving the page (another window, the address bar, another tab) dismisses it.
-    const onLeave = (): void => close();
+    const onLeave = (): void => {
+      if (!holdOpen) close();
+    };
     const onVisibility = (): void => {
-      if (document.hidden) close();
+      if (document.hidden && !holdOpen) close();
     };
     window.addEventListener('blur', onLeave);
     window.addEventListener('pagehide', onLeave);
@@ -108,6 +112,10 @@ function createOverlay(): NonNullable<typeof globalThis.__summonOverlay> {
         if (action.type !== 'none') await send({ type: 'execute', action });
       },
       close,
+      importMemory: (memory) => send({ type: 'import', memory }),
+      holdOpen: (hold) => {
+        holdOpen = hold;
+      },
     });
     input.focus({ preventScroll: true });
   }

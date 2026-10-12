@@ -1,5 +1,17 @@
 import { describe, expect, it } from 'vitest';
-import { emptyMemory, learnedFor, type Memory, migrate, normalizeQuery, prefersSwitch, record } from '../../src/memory';
+import {
+  emptyMemory,
+  exportMemory,
+  learnedFor,
+  type Memory,
+  merge,
+  migrate,
+  normalizeQuery,
+  parseExport,
+  prefersSwitch,
+  record,
+  size,
+} from '../../src/memory';
 
 const DAY = 24 * 60 * 60 * 1000;
 const T0 = Date.UTC(2026, 9, 1);
@@ -129,5 +141,35 @@ describe('limits and storage format', () => {
     expect(migrate({ version: 99, picks: { a: {} } })).toEqual(emptyMemory());
     const stored = picks([['od', DEV1, T0]]);
     expect(migrate(JSON.parse(JSON.stringify(stored)))).toEqual(stored);
+  });
+});
+
+describe('export and import', () => {
+  it('round-trips through an export file', () => {
+    const m = picks([['od', DEV1, T0]]);
+    expect(parseExport(exportMemory(m, T0))).toEqual(m);
+  });
+
+  it('rejects other files with a readable message', () => {
+    expect(() => parseExport('nope')).toThrow('not JSON');
+    expect(() => parseExport('{"a":1}')).toThrow('not a Summon export');
+    expect(() => parseExport(JSON.stringify({ format: 'summon-memory', memory: { version: 2 } }))).toThrow('empty or from a newer');
+  });
+
+  it('merges: keeps both sides, the more recent record wins', () => {
+    const current = picks([
+      ['od', DEV2, T0 + 10 * DAY],
+      ['gh', DEV1, T0],
+    ]);
+    const backup = picks([
+      ['od', DEV2, T0],
+      ['od', DEV1, T0],
+      ['tr', DEV1, T0],
+    ]);
+    const merged = merge(current, backup, T0 + 10 * DAY);
+    expect(Object.keys(merged.picks).sort()).toEqual(['gh', 'od', 'tr']);
+    expect(merged.picks.od![DEV2]!.last).toBe(T0 + 10 * DAY);
+    expect(merged.picks.od![DEV1]).toBeDefined();
+    expect(size(merged)).toBe(3);
   });
 });

@@ -156,8 +156,8 @@ annoys, switch `.hl` in `panel.css` to one of those. For visual changes, render 
 Done: MVP, CamelHumps search, open/similar rule (⌥↵), in-page overlay with popup fallback, memory (usual picks ✦,
 ⌥↵ habit, export/import via `>`), wrong-layout search, match highlighting (style "E" on trial), Spark icon,
 lavender accents.
-New tab page (focused search, blank-tab behavior, frequent chips, clock, stale tabs) on branch `newtab`, to be
-fast-forwarded into `main` after the user has lived with it. Unit 94/94, E2E 28/28.
+New tab page (focused search, blank-tab behavior, frequent chips with ⌥1…⌥6, clock, stale tabs), tried by the user
+in Chrome and merged. Unit 94/94, E2E 28/28.
 Pending: rest of the README manual checklist in real Chrome — shortcut with focus in the address bar, sites with
 their own shortcuts (GitHub, Google Docs, Jira), restricted pages (chrome://settings, Web Store, PDF). What the user
 used day to day works. Claude in Chrome can't open chrome:// or extension pages, so it can't drive Summon itself.

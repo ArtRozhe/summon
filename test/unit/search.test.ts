@@ -53,6 +53,51 @@ describe('matching', () => {
   });
 });
 
+describe('humps (abbreviations from word starts)', () => {
+  const items = [
+    bookmark('AppDev1', 'https://dev1.app.example/'),
+    bookmark('AppDev2', 'https://dev2.app.example/'),
+    bookmark('AppInfraDeploy', 'https://ci.example/job/deploy/'),
+    bookmark('AppPRs', 'https://code.example/org/app/pulls'),
+    bookmark('UiKitRepo', 'https://code.example/org/ui-kit'),
+    bookmark('UiKitDev', 'https://storybook.example/dev'),
+    bookmark('TranslateEnglishRussian', 'https://translate.example/?sl=en&tl=ru'),
+    bookmark('TranslateRussianEnglish', 'https://translate.example/?sl=ru&tl=en'),
+  ];
+
+  it('treats digits as words', () => {
+    expect(titlesFor(items, 'ad1')).toEqual(['AppDev1']);
+    expect(titlesFor(items, 'ad2')).toEqual(['AppDev2']);
+    expect(titlesFor(items, 'dev 1')[0]).toBe('AppDev1');
+  });
+
+  it('takes several letters from a word', () => {
+    expect(titlesFor(items, 'apd1')).toEqual(['AppDev1']);
+    expect(titlesFor(items, 'ainfd')).toEqual(['AppInfraDeploy']);
+    expect(titlesFor(items, 'trans')).toEqual(['TranslateEnglishRussian', 'TranslateRussianEnglish']);
+  });
+
+  it('ranks exact initials above a shared word prefix', () => {
+    expect(titlesFor(items, 'ukr')[0]).toBe('UiKitRepo');
+    expect(titlesFor(items, 'ter')).toEqual(['TranslateEnglishRussian']);
+    // "Tr-anslate + E-nglish" also fits the other one, but exact initials rank first.
+    expect(titlesFor(items, 'tre')).toEqual(['TranslateRussianEnglish', 'TranslateEnglishRussian']);
+  });
+
+  it('ranks matches from the first word above ones that skip words', () => {
+    expect(titlesFor(items, 'ad')).toEqual(['AppDev1', 'AppDev2', 'AppInfraDeploy']);
+  });
+
+  it('keeps plural acronyms whole', () => {
+    expect(titlesFor(items, 'prs')).toEqual(['AppPRs']);
+    expect(titlesFor(items, 'ap')[0]).toBe('AppPRs');
+  });
+
+  it('does not match substrings across camel-case words', () => {
+    expect(titlesFor([bookmark('UiKitDev', 'https://s.example/')], 'td')).toEqual([]);
+  });
+});
+
 describe('ranking', () => {
   it('ranks domain matches above path matches', () => {
     const items = [bookmark('Some page', 'https://example.com/docs/intro'), bookmark('Google Docs', 'https://docs.google.com/')];

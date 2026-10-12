@@ -4,9 +4,14 @@ export const MAX_RESULTS = 8;
 
 const SCORE = {
   exactWord: 100,
+  /** The token is all initials of a title or of a camel-cased word: "gter" → GoogleTranslateEnglishRussian. */
+  exactInitials: 95,
   fieldPrefix: 80,
+  /** Word-start prefixes from the first word on, in order: "apd1" → AppDev1, "gtrans" → Google Translate. */
+  humpsFromStart: 70,
   wordPrefix: 60,
-  initials: 50,
+  /** The same, but skipping words: "ad" → AppInfraDeploy. */
+  humpsWithSkips: 45,
   substring: 30,
   urlRest: 10,
 };
@@ -15,8 +20,14 @@ const CURRENT_PENALTY = 10;
 
 interface PreparedTitle {
   lower: string;
+  /** Words split at camel-case and letter/digit boundaries, joined by spaces: "app dev 1". */
+  spaced: string;
   words: string[];
-  initials: string[];
+  /**
+   * Word sequences for hump matching: the whole title, each title segment, each camel-cased word.
+   * Lowercase, e.g. [["app", "dev", "1"]].
+   */
+  humps: string[][];
 }
 
 export interface Prepared {
@@ -35,36 +46,73 @@ export interface Prepared {
 const SEGMENT_SEPARATOR = /\s+[·|•—–-]\s+|\s*[|•·:]\s*/u;
 const NON_WORD = /[^\p{L}\p{N}]+/u;
 
-/** "GitHub" → ["Git", "Hub"], "iPhone" → ["i", "Phone"], "HTMLParser" → ["HTML", "Parser"]. */
-function camelParts(word: string): string[] {
+/**
+ * "GitHub" → ["Git", "Hub"], "HTMLParser" → ["HTML", "Parser"], "AppDev1" → ["App", "Dev", "1"].
+ * A plural acronym stays whole: "PRs", "APIs".
+ */
+export function camelParts(word: string): string[] {
   return word
     .replace(/(\p{Ll})(\p{Lu})/gu, '$1 $2')
-    .replace(/(\p{Lu})(\p{Lu}\p{Ll})/gu, '$1 $2')
+    .replace(/(\p{Lu})(\p{Lu}\p{Ll}{2,})/gu, '$1 $2')
+    .replace(/(\p{L})(\p{N})/gu, '$1 $2')
+    .replace(/(\p{N})(\p{L})/gu, '$1 $2')
     .split(' ')
     .filter(Boolean);
 }
 
+function humpsOf(text: string): string[] {
+  return text.split(NON_WORD).filter(Boolean).flatMap(camelParts).map((h) => h.toLowerCase());
+}
+
 function prepareTitle(title: string): PreparedTitle {
   const raw = title.split(NON_WORD).filter(Boolean);
-  const words = new Set<string>();
+  const all = humpsOf(title);
+  const words = new Set<string>([...raw.map((w) => w.toLowerCase()), ...all]);
+
+  const humps = [all];
+  const segments = title.split(SEGMENT_SEPARATOR);
+  if (segments.length > 1) humps.push(...segments.map(humpsOf));
   for (const word of raw) {
-    words.add(word.toLowerCase());
-    for (const part of camelParts(word)) words.add(part.toLowerCase());
+    const parts = humpsOf(word);
+    if (parts.length > 1) humps.push(parts);
   }
 
-  // Initials per title segment ("Stack Overflow" → "so") and per camel-cased word ("GitHub" → "gh"),
-  // so a long title like "Pull requests · GitHub" still yields "gh".
-  const initials = new Set<string>();
-  for (const segment of title.split(SEGMENT_SEPARATOR)) {
-    const parts = segment.split(NON_WORD).filter(Boolean).flatMap(camelParts);
-    if (parts.length > 1) initials.add(parts.map((p) => p[0]).join('').toLowerCase());
-  }
-  for (const word of raw) {
-    const parts = camelParts(word);
-    if (parts.length > 1) initials.add(parts.map((p) => p[0]).join('').toLowerCase());
-  }
+  return {
+    lower: title.toLowerCase(),
+    spaced: all.join(' '),
+    words: [...words],
+    humps: humps.filter((h) => h.length > 1),
+  };
+}
 
-  return { lower: title.toLowerCase(), words: [...words], initials: [...initials] };
+/**
+ * Splits the token into prefixes of words taken in order, using at least two words.
+ * 2: from the first word without skipping any; 1: with skipped words; 0: no match.
+ */
+export function humpMatch(token: string, humps: string[]): 0 | 1 | 2 {
+  const memo = new Map<string, boolean>();
+  const fits = (i: number, j: number, used: number, skip: boolean): boolean => {
+    if (i === token.length) return used >= 2;
+    const key = `${i},${j},${Math.min(used, 2)},${skip}`;
+    const known = memo.get(key);
+    if (known !== undefined) return known;
+    let ok = false;
+    for (let k = j; k < humps.length && !ok; k++) {
+      if (k > j && !skip) break;
+      const hump = humps[k]!;
+      for (let len = Math.min(hump.length, token.length - i); len >= 1 && !ok; len--) {
+        if (hump.startsWith(token.slice(i, i + len))) ok = fits(i + len, k + 1, used + 1, skip);
+      }
+    }
+    memo.set(key, ok);
+    return ok;
+  };
+  if (fits(0, 0, 0, false)) return 2;
+  return fits(0, 0, 0, true) ? 1 : 0;
+}
+
+function initials(humps: string[]): string {
+  return humps.map((h) => h[0]).join('');
 }
 
 function splitUrl(url: string): { host: string; rest: string } {
@@ -106,12 +154,25 @@ function tokenScore(p: Prepared, token: string): number {
   if (titles.some((t) => t.lower === token || t.words.includes(token)) || hostLabels.includes(token)) {
     return SCORE.exactWord;
   }
+  if (token.length >= 2 && titles.some((t) => t.humps.some((h) => initials(h) === token))) return SCORE.exactInitials;
   if (titles.some((t) => t.lower.startsWith(token)) || host.startsWith(token)) return SCORE.fieldPrefix;
+
+  let hump = 0;
+  if (token.length >= 2) {
+    for (const t of titles) for (const h of t.humps) hump = Math.max(hump, humpMatch(token, h));
+  }
+  if (hump === 2) return SCORE.humpsFromStart;
   if (titles.some((t) => t.words.some((w) => w.startsWith(token))) || hostLabels.some((l) => l.startsWith(token))) {
     return SCORE.wordPrefix;
   }
-  if (token.length >= 2 && titles.some((t) => t.initials.some((i) => i.startsWith(token)))) return SCORE.initials;
-  if (titles.some((t) => t.lower.includes(token)) || host.includes(token)) return SCORE.substring;
+  if (hump === 1) return SCORE.humpsWithSkips;
+
+  // Substrings count within words only: "td" must not match across "Kit|Dev".
+  // A token with punctuation ("acme/summon") is looked up in the raw title.
+  const inTitle = NON_WORD.test(token)
+    ? titles.some((t) => t.lower.includes(token))
+    : titles.some((t) => t.spaced.includes(token));
+  if (inTitle || host.includes(token)) return SCORE.substring;
   if (rest.includes(token)) return SCORE.urlRest;
   return 0;
 }

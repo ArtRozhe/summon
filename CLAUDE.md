@@ -40,7 +40,11 @@ User-facing docs, run instructions and the manual checklist are in `README.md`; 
 - **Background worker** is stateless: `load` (tabs + bookmarks → items, context from `sender.tab`) and `execute`
   messages from the overlay. The popup still reads data and executes itself.
 - **No cache.** Tabs and bookmarks are read fresh on every opening. Add one only if loading becomes measurably slow.
-- **Permissions: `tabs`, `bookmarks`, `activeTab`, `scripting`, `storage`, `favicon`.** No host permissions. `favicon` adds
+- **Permissions: `tabs`, `bookmarks`, `activeTab`, `scripting`, `storage`, `favicon`; optional `history`.** No host
+  permissions. `history`'s warning is stronger than `tabs`' ("Read and change your browsing history on all signed-in
+  devices", documented), hence optional: `> Enable history search` on the new tab page (`permissions.request` needs an
+  extension page + gesture; not offered in the overlay — no `chrome.permissions` in content scripts — nor in the popup,
+  where the prompt would presumably close it: unverified). `> Disable…` works everywhere (worker removes it). `favicon` adds
   no install warning next to `tabs` (documented). Icons (`src/favicons.ts`) are read from `_favicon/` in extension
   contexts only, as data URLs; the overlay gets them from the worker (`icons` message), so `_favicon/` is not in
   `web_accessible_resources` (that would let any site detect Summon and probe icons). Chrome's answer for an unknown
@@ -63,6 +67,11 @@ User-facing docs, run instructions and the manual checklist are in `README.md`; 
   with ⌥↵. Agreed next step: learn per bookmark when ⌥↵ is used (roadmap item 1). Origin alone is too coarse
   (all github.com / docs.google.com bookmarks would look open).
 - Tab choice among duplicates: current tab → current window → most recently used.
+- **History search** (`src/history.ts`): loaded after the first results (`shell.history`), last 90 days, ≤3000 pages,
+  minus tab/bookmark URLs, searched by the same engine; shown under a "History" header only when tabs + bookmarks give
+  < 8 matches and the query isn't empty — never above them. Row badge = "Today / Yesterday / N days ago". Enter opens in
+  a new tab (in place on the new tab page). E2E grants the permission by installing a `dist` copy with it required
+  (the prompt can't be clicked); granting/removing stays manual.
 - **Tab actions** (`tabFor` = the tab Enter would switch to; bookmarks only where open): ⌘K opens an actions menu in
   place of the results (variant "A" of two rendered; header row = the result, Esc back to the same row): the Enter /
   ⌥↵ / ⇧↵ actions, Move to this window (tab in another window), Move to / Open in new window, Open in background (bookmark not
@@ -172,7 +181,7 @@ Done: MVP, CamelHumps search, open/similar rule (⌥↵), in-page overlay with p
 lavender accents.
 New tab page (focused search, blank-tab behavior, frequent chips with ⌥1…⌥6, clock, stale tabs), tried by the user
 in Chrome and merged. Unit 94/94, E2E 28/28.
-Site icons (favicons) in all shells. Tab actions (⌘K menu, ⌘C, ⇧⌘⌫ + ⌘Z). Unit 95/95, E2E 35/35.
+Site icons (favicons) in all shells. Tab actions (⌘K menu, ⌘C, ⇧⌘⌫ + ⌘Z). History search (optional permission). Unit 97/97, E2E 37/37.
 Pending: rest of the README manual checklist in real Chrome — shortcut with focus in the address bar, sites with
 their own shortcuts (GitHub, Google Docs, Jira), restricted pages (chrome://settings, Web Store, PDF). What the user
 used day to day works. Claude in Chrome can't open chrome:// or extension pages, so it can't drive Summon itself.

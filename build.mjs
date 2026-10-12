@@ -13,6 +13,8 @@ const common = {
   target: 'chrome120',
   sourcemap: 'linked',
   logLevel: 'info',
+  // Stylesheets are imported as text and applied as constructed stylesheets (works inside shadow roots and under a page's CSP).
+  loader: { '.css': 'text' },
 };
 const builds = [
   { ...common, entryPoints: ['src/popup.ts', 'src/background.ts'], format: 'esm' },

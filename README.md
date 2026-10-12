@@ -59,8 +59,10 @@ so it never touches the network or your own tabs. Screenshots land in `test-resu
 The keyboard shortcut itself cannot be pressed from automation (it is handled by the browser, not the page),
 so a few checks stay manual:
 
-- [ ] The shortcut opens the panel with focus in the field on a regular page, `chrome://settings`,
-      the Chrome Web Store, the New Tab page, a PDF.
+- [ ] On a regular page the shortcut shows the panel at once, centered, with focus in the field — also when the
+      address bar had focus.
+- [ ] On `chrome://settings`, the Chrome Web Store, the New Tab page and a PDF the popup opens instead.
+- [ ] Typing in the panel doesn't trigger the site's own shortcuts (GitHub, Google Docs, Jira).
 - [ ] The shortcut can be changed at `chrome://extensions/shortcuts`.
 - [ ] Clicking outside the panel closes it.
 - [ ] Enter on a tab in another window brings that window to the front.
@@ -71,9 +73,16 @@ so a few checks stay manual:
 
 - `tabs` — read titles and URLs of open tabs. Chrome shows "Read your browsing history" at install.
 - `bookmarks` — read bookmarks. Chrome shows "Read and change your bookmarks"; Summon never changes them.
+- `activeTab` + `scripting` — draw the panel inside the current page, only when you invoke Summon. No install warning.
 
-No host permissions, content scripts, background worker, network requests or storage. All data stays in the popup
-and is read fresh each time it opens.
+No host permissions, network requests or storage. Data is read fresh each time the panel opens.
+
+## How the panel opens
+
+On regular pages the panel is drawn **inside the page**, over it, so it appears at once — the toolbar popup needs a
+new browser process each time and can take about a second. It lives in a closed shadow root, out of reach of the
+page's scripts and styles; the page shows through it blurred. Where extensions can't run scripts (`chrome://` pages,
+the Chrome Web Store, PDFs, the New Tab page) the same panel opens as the toolbar popup instead.
 
 ## How search works
 

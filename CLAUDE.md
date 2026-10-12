@@ -5,17 +5,29 @@ User-facing docs, run instructions and the manual checklist are in `README.md`; 
 
 ## Architecture (decided, keep unless there is a reason)
 
-- **Action popup opened by `_execute_action`**, not an in-page overlay or a separate window. It works on every page
-  (`chrome://`, Web Store, PDF, NTP) without content scripts or host permissions, closes itself on focus loss, and
-  needs no code to bind the shortcut. Cost: the panel is anchored to the toolbar icon, not centered.
-- **No service worker, no cache.** The popup reads `tabs.query({})` + `bookmarks.getTree()` fresh on every open, so
-  there is no invalidation and no SW lifecycle to manage. Add a SW only if loading becomes measurably slow.
-- **Permissions: `tabs`, `bookmarks` only.** No `favicon` (extra install warning, and favicon URLs would mean network
-  requests) — site tiles with the domain's first letter instead.
-- **Actions dispatch all `chrome.*` calls before the first await** (`src/actions.ts`): the popup dies as soon as
-  another tab/window gets focus. Verified by E2E (other-window activation works). If it ever flakes, move
-  `execute` into a stateless SW via `runtime.sendMessage`.
-- `minimum_chrome_version: 121` because of `Tab.lastAccessed`.
+- **Two shells, one panel.** `src/ui/panel.ts` (+ `panel.css`) is the search panel: rows, keys, hints, states.
+  - **Overlay** (`src/overlay.ts`, `ui/overlay.css`) — main shell. The icon click / `_execute_action` shortcut reach
+    `action.onClicked` in the background worker (the action has no default popup), which injects `overlay.js` into the
+    current tab with `activeTab` + `scripting`. Why: the action popup needs a new renderer process per opening and
+    took ~1 s in the user's Chrome (other extensions' popups too); the overlay appears in 2–6 ms.
+  - **Popup** (`src/popup.ts`, `ui/popup.css`) — fallback where scripts can't run (chrome://, Web Store, PDF, NTP):
+    `executeScript` throws, the worker sets a per-tab popup, calls `action.openPopup()` (Chrome 127+), unsets it.
+- **Overlay isolation:** closed shadow root in a custom element, made a `popover` (top layer: above any z-index and
+  fullscreen). Host styles via CSSOM `setProperty(..., 'important')`, panel CSS via constructed stylesheets — both work
+  under a strict page CSP (E2E covers it). Keys stop propagating at the panel, so site shortcuts don't fire.
+  Closes on Esc, click outside, window blur, tab hidden, re-invocation (toggle via a global in the isolated world).
+  No `performance.mark` in the overlay: the page would see it. Known limit: a page's own capture-phase key listener
+  registered on window could still observe what is typed.
+- **Glass:** overlay = real `backdrop-filter` over the page. Its entrance animation is scale-only: animating opacity
+  switches the backdrop blur off until the animation ends (seen in E2E screenshots). Popup = our gradient (it can't
+  see the page).
+- **Background worker** is stateless: `load` (tabs + bookmarks → items, context from `sender.tab`) and `execute`
+  messages from the overlay. The popup still reads data and executes itself.
+- **No cache.** Data is read fresh on every opening. Add one only if loading becomes measurably slow.
+- **Permissions: `tabs`, `bookmarks`, `activeTab`, `scripting`.** No host permissions, no `favicon` (extra install
+  warning) — site tiles with the domain's first letter instead.
+- **Actions dispatch all `chrome.*` calls before the first await** (`src/actions.ts`); the overlay closes itself first.
+- `minimum_chrome_version: 127` (`action.openPopup`; `Tab.lastAccessed` needs 121).
 - Summon's own extension pages are filtered out of results.
 
 ## Behavior decisions
@@ -58,13 +70,17 @@ Width 640px. For visual changes, render options from the real popup (Puppeteer) 
 ## Testing
 
 - `npm test` — Vitest unit tests on pure logic (`search`, `actions`, `data`).
-- `npm run e2e` — Puppeteer + Chrome for Testing, headless, throwaway profile; opens the **real** popup via
-  `page.triggerExtensionAction`. Screenshots go to `test-results/` — look at them after UI changes.
+- `npm run e2e` — Puppeteer + Chrome for Testing, headless, throwaway profile. `openPanel` invokes Summon via
+  `page.triggerExtensionAction` and returns a driver for whichever shell opened: the overlay is read through the
+  page's extension realm (`page.extensionRealms()`, `__summonOverlay.root`), the popup through its target.
+  Screenshots go to `test-results/` — look at them after UI changes (force `prefers-color-scheme`: headless follows
+  the system theme).
 - Gotchas found:
   - Fixture hosts must be `*.test`: github.com etc. are HSTS-preloaded and get forced to https, while the local fixture
     server is http. Also pass `--disable-features=HttpsUpgrades`.
   - `page.setViewport` on the popup target crashes Puppeteer; for 2× renders use `--force-device-scale-factor=2`.
-  - The browser shortcut cannot be pressed via CDP — shortcut, real focus and restricted pages stay manual.
+  - The browser shortcut cannot be pressed via CDP — shortcut and real focus stay manual.
+  - Right after install the worker may not be listening yet; the first click can be lost (scripts outside the harness).
 - `popup.html?tab=&window=` overrides the current tab/window, for running the popup inside a normal tab
   (e.g. via Claude in Chrome on the user's own profile).
 
@@ -82,5 +98,6 @@ Width 640px. For visual changes, render options from the real popup (Puppeteer) 
 
 ## Status (2026-10-12)
 
-MVP done: unit 29/29, E2E 11/11. Pending: the user's manual checklist from README in real Chrome, then a run on the
-user's personal profile via Claude in Chrome (ranking on real bookmarks).
+MVP + CamelHumps search + open/similar rule + in-page overlay with popup fallback. Unit 49/49, E2E 18/18.
+Pending: the user's manual checklist from README in real Chrome (shortcut, focus from the address bar, site shortcuts,
+restricted pages). Claude in Chrome can't open chrome:// or extension pages, so it can't drive Summon itself.

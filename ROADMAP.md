@@ -22,9 +22,9 @@ Ordered by value for the core flow (shortcut → a few letters → Enter). Top-d
 
 ## Then — more capability
 
-4. **New tab page.** `chrome_url_overrides.newtab` with the search field centered, Spotlight-like, and real glass
-   (`backdrop-filter` over a bundled wallpaper), plus local-only extras: recent tabs, frequent picks (needs 1),
-   stale tabs to close in one go, clock. Start with a **focus prototype**: Chrome gives new tabs' focus to the address
+4. **New tab page.** The New Tab page is one of the places where the overlay can't run (it falls back to the slow
+   popup). `chrome_url_overrides.newtab` with the search field centered over a bundled wallpaper, plus local-only
+   extras: recent tabs, frequent picks (needs 1), stale tabs to close in one go, clock. Start with a **focus prototype**: Chrome gives new tabs' focus to the address
    bar, so check manually whether ⌘T → typing can reach our field (e.g. the page re-navigating itself via
    `chrome.tabs.update`). If it can't without a click, reconsider the item and lean on 5.
    Behavior differs from the popup: the current tab is the Summon page itself, so Enter on a bookmark opens it in place,
@@ -43,8 +43,5 @@ Ordered by value for the core flow (shortcut → a few letters → Enter). Top-d
 ## Later — when needed
 
 10. **Tab group names in search** — "work" finds every tab in the Work group.
-11. **Performance check** on 5–10k bookmarks: an E2E test with timing; add a service worker cache only if slow.
+11. **Performance check** on 5–10k bookmarks: an E2E test with timing; add a cache in the background worker only if slow.
 12. **CI:** GitHub Actions running unit and E2E tests, plus a zip build for installing. Groundwork for the Chrome Web Store.
-13. **Centered in-page overlay** on regular sites, falling back to the popup where pages are restricted. Closest to the
-    Spotlight feel on any site (item 4 covers only new tabs), but it is a second UI implementation — last, and only if the
-    toolbar-anchored panel turns out to be annoying.

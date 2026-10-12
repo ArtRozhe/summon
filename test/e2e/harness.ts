@@ -20,16 +20,46 @@ export interface Harness {
 }
 
 /**
+ * A page with some color and text, so screenshots show the glass blurring real content. It counts
+ * keydowns the page itself receives (`window.__pageKeys`), to check the panel keeps keys to itself.
+ */
+function fixturePage(title: string, inlineScript: boolean): string {
+  const t = title.replace(/</g, '&lt;');
+  const cards = ['#ff6b6b', '#ffd166', '#06d6a0', '#118ab2', '#8338ec', '#ef476f']
+    .map((c, i) => `<div style="background:${c}">Card ${i + 1}</div>`)
+    .join('');
+  return `<!doctype html><meta charset="utf-8"><title>${t}</title>
+<style>
+  body { margin: 0; font: 16px/1.5 system-ui; color: #222; background: #fafafa; }
+  @media (prefers-color-scheme: dark) { body { color: #ddd; background: #16161a; } }
+  header { padding: 24px 40px; background: linear-gradient(90deg, #4361ee, #f72585); color: #fff; }
+  main { padding: 24px 40px; } p { max-width: 70ch; }
+  .cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-top: 24px; }
+  .cards div { height: 120px; border-radius: 12px; color: #fff; font-weight: 700; padding: 16px; }
+</style>
+<header><h1>${t}</h1></header>
+<main><p>${'Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore. '.repeat(3)}</p>
+<div class="cards">${cards}</div></main>
+${inlineScript ? '<script>window.__pageKeys = 0; document.addEventListener("keydown", () => window.__pageKeys++);</script>' : ''}`;
+}
+
+/**
  * Serves every host from one local server, so fixture tabs get real-looking URLs without
  * touching the network. Fixtures use `.test` hosts: real ones like github.com are
  * HSTS-preloaded and would be forced to https. Titles come from `titles`, keyed by host + path.
+ * Paths starting with `/csp` are served with a strict Content-Security-Policy (no inline styles or scripts).
  */
 function startServer(titles: Map<string, string>): Promise<Server> {
   const server = createServer((req, res) => {
-    const key = `${req.headers.host}${req.url?.split(/[?#]/)[0]}`;
+    const path = req.url?.split(/[?#]/)[0] ?? '/';
+    const key = `${req.headers.host}${path}`;
     const title = titles.get(key) ?? key;
-    res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
-    res.end(`<!doctype html><title>${title.replace(/</g, '&lt;')}</title><h1>${title.replace(/</g, '&lt;')}</h1>`);
+    const strict = path.startsWith('/csp');
+    res.writeHead(200, {
+      'content-type': 'text/html; charset=utf-8',
+      ...(strict ? { 'content-security-policy': "default-src 'none'; style-src 'self'; script-src 'self'" } : {}),
+    });
+    res.end(fixturePage(title, !strict));
   });
   return new Promise((done) => server.listen(0, '127.0.0.1', () => done(server)));
 }
@@ -179,19 +209,71 @@ export async function settledState(h: Harness, ready: (s: BrowserState) => boole
   return s;
 }
 
+export interface Panel {
+  kind: 'overlay' | 'popup';
+  /** The page that receives keyboard input: the site for the overlay, the popup itself otherwise. */
+  page: Page;
+  /** Runs `fn` against the panel's root (the overlay's closed shadow root, or the popup document). */
+  query<T>(fn: (root: ShadowRoot | Document) => T): Promise<T>;
+  isOpen(): Promise<boolean>;
+}
+
+async function waitFor<T>(get: () => Promise<T | undefined> | T | undefined, what: string): Promise<T> {
+  for (let i = 0; i < 100; i++) {
+    const value = await get();
+    if (value !== undefined && value !== null && value !== false) return value;
+    await new Promise((r) => setTimeout(r, 30));
+  }
+  throw new Error(`Timed out waiting for ${what}`);
+}
+
 /**
- * Opens the real action popup for the given tab, as a toolbar click would.
- * The keyboard shortcut itself cannot be pressed from CDP; that stays a manual check.
+ * Invokes Summon on the given tab, as a click on the toolbar icon would (the keyboard shortcut itself
+ * can't be pressed from CDP). On regular pages that injects the overlay; on restricted pages
+ * (chrome://…) the background worker falls back to the action popup.
  */
-export async function openPopup(h: Harness, tabId: number): Promise<Page> {
+export async function openPanel(h: Harness, tabId: number): Promise<Panel> {
   await focusTab(h, tabId);
   const page = await findPageForTab(h, tabId);
   const extension = (await h.browser.extensions()).get(h.extensionId)!;
-  const target = h.browser.waitForTarget((t) => t.url() === `chrome-extension://${h.extensionId}/popup.html`);
+  const popupUrl = `chrome-extension://${h.extensionId}/popup.html`;
+  const popupTarget = h.browser
+    .waitForTarget((t) => t.url() === popupUrl, { timeout: 3000 })
+    .catch(() => null);
   await page.triggerExtensionAction(extension);
-  const popup = (await (await target).asPage())!;
-  await popup.waitForSelector('#results .row, #status:not(:empty)');
-  return popup;
+
+  let panel: Panel;
+  if (page.url().startsWith('http')) {
+    // The overlay's state lives in the extension's isolated world of the page.
+    const realm = await waitFor(async () => {
+      for (const r of page.extensionRealms()) {
+        if (await r.evaluate(() => !!globalThis.__summonOverlay?.root).catch(() => false)) return r;
+      }
+      return undefined;
+    }, 'the overlay');
+    panel = {
+      kind: 'overlay',
+      page,
+      query: <T>(fn: (root: ShadowRoot | Document) => T) =>
+        realm.evaluate(`(${fn.toString()})(globalThis.__summonOverlay.root)`) as Promise<T>,
+      isOpen: () => realm.evaluate(() => !!globalThis.__summonOverlay?.root),
+    };
+  } else {
+    const target = await popupTarget;
+    if (!target) throw new Error('The popup fallback did not open');
+    const popup = (await target.asPage())!;
+    panel = {
+      kind: 'popup',
+      page: popup,
+      query: <T>(fn: (root: ShadowRoot | Document) => T) => popup.evaluate(`(${fn.toString()})(document)`) as Promise<T>,
+      isOpen: async () => !popup.isClosed(),
+    };
+  }
+  await waitFor(
+    () => panel.query((root) => !!root.querySelector('.results .row') || !!root.querySelector('.status')?.textContent),
+    'results',
+  );
+  return panel;
 }
 
 async function findPageForTab(h: Harness, tabId: number): Promise<Page> {
@@ -201,19 +283,23 @@ async function findPageForTab(h: Harness, tabId: number): Promise<Page> {
   return page;
 }
 
-/** Waits for the popup document to go away (it closes itself after an action). */
-export async function waitClosed(popup: Page): Promise<void> {
+/** Waits for the panel to go away (it closes itself after an action). */
+export async function waitClosed(panel: Panel): Promise<void> {
   for (let i = 0; i < 50; i++) {
-    if (popup.isClosed()) return;
+    if (!(await panel.isOpen().catch(() => false))) return;
     await new Promise((r) => setTimeout(r, 50));
   }
-  throw new Error('Popup did not close');
+  throw new Error('Panel did not close');
 }
 
-export async function titles(popup: Page): Promise<string[]> {
-  return popup.$$eval('#results .title', (els) => els.map((e) => e.textContent ?? ''));
+export function titles(panel: Panel): Promise<string[]> {
+  return panel.query((root) => [...root.querySelectorAll('.results .title')].map((e) => e.textContent ?? ''));
 }
 
-export async function selectedTitle(popup: Page): Promise<string | undefined> {
-  return popup.$eval('#results [aria-selected="true"] .title', (e) => e.textContent ?? undefined).catch(() => undefined);
+export function selectedTitle(panel: Panel): Promise<string | undefined> {
+  return panel.query((root) => root.querySelector('.results [aria-selected="true"] .title')?.textContent ?? undefined);
+}
+
+export function text(panel: Panel, selector: string): Promise<string> {
+  return panel.query(new Function('root', `return root.querySelector(${JSON.stringify(selector)})?.textContent ?? ''`) as (root: ShadowRoot | Document) => string);
 }

@@ -105,8 +105,18 @@ describe('tab actions', () => {
     expect(await panel.query((root) => [...root.querySelectorAll('.row.menu .title')].map((e) => e.textContent))).toEqual([
       'Open in new tab',
       'Open in this tab',
+      'Open in background',
       'Open in new window',
       'Copy URL',
     ]);
+
+    // "Open in background": a tab next to this one, this one stays active, the panel stays open.
+    await panel.page.keyboard.press('ArrowDown');
+    await panel.page.keyboard.press('ArrowDown');
+    await panel.page.keyboard.press('Enter');
+    const s = await settledState(h, (s) => s.urls.includes('http://kit.test/dev'));
+    expect(s.activeTabId).toBe(current);
+    expect(await status(panel)).toContain('background');
+    expect(await panel.isOpen()).toBe(true);
   });
 });

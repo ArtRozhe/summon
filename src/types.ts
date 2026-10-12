@@ -47,5 +47,6 @@ export type Action =
   /** Tab actions (⌘K, ⇧⌘⌫): the panel stays open for close and reopen. */
   | { type: 'close'; tabId: number }
   | { type: 'reopen'; url: string; windowId: number; index?: number }
+  | { type: 'open-background'; url: string }
   | { type: 'move-here'; tabId: number }
   | { type: 'new-window'; tabId?: number; url: string };

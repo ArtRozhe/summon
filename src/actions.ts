@@ -123,6 +123,12 @@ export async function execute(action: Action, ctx: Context): Promise<void> {
       );
       break;
     }
+    case 'open-background':
+      // Next to the current tab, like a ⌘-click; the panel stays open.
+      calls.push(
+        chrome.tabs.create({ url: action.url, active: false, windowId: ctx.currentWindowId, openerTabId: ctx.currentTabId }),
+      );
+      break;
     case 'move-here': {
       const tabId = action.tabId;
       // Activate once it has arrived, so it becomes the active tab of this window. Moving doesn't close the

@@ -480,6 +480,7 @@ export function mountPanel(panel: HTMLElement, shell: PanelShell): { input: HTML
     if (d.altEnter) actions.push({ title: d.altEnter, glyph: '⌥', key: '⌥↵', run: open({ alt: true }) });
     if (d.shiftEnter) actions.push({ title: d.shiftEnter, glyph: '⇧', key: '⇧↵', run: open({ shift: true }) });
     const tab = tabFor(item, ctx);
+    if (!tab) actions.push({ title: 'Open in background', glyph: '⤓', run: () => openInBackground(item) });
     if (tab && tab.windowId !== ctx.currentWindowId && tab.tabId !== ctx.currentTabId) {
       actions.push({ title: 'Move to this window', glyph: '⇥', run: () => perform({ type: 'move-here', tabId: tab.tabId }) });
     }
@@ -491,6 +492,24 @@ export function mountPanel(panel: HTMLElement, shell: PanelShell): { input: HTML
     actions.push({ title: 'Copy URL', glyph: '⎘', key: '⌘C', run: () => void copyItem(item) });
     if (tab) actions.push({ title: 'Close tab', glyph: '✕', key: '⇧⌘⌫', run: () => void closeItem(item) });
     return actions;
+  }
+
+  /** Opens a bookmark in a background tab; the panel stays, the bookmark then shows as open. */
+  async function openInBackground(item: Item): Promise<void> {
+    shell.remember({ query: input.value, key: memoryKey(item.url) });
+    try {
+      await shell.apply({ type: 'open-background', url: item.url }, ctx);
+    } catch (error) {
+      setStatus(`Couldn’t open: ${error instanceof Error ? error.message : String(error)}`, true);
+      return;
+    }
+    const back = menu ? menu.back : selected;
+    closeMenu(false);
+    reload();
+    afterReload = () => {
+      select(back);
+      setStatus('Opened in a background tab');
+    };
   }
 
   /** Runs an action that leaves the panel (move a tab, open a window). */

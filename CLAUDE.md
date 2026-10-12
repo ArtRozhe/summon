@@ -62,7 +62,11 @@ User-facing docs, run instructions and the manual checklist are in `README.md`; 
   `downloads` permission). Import merges (later `last` wins). Overlay keeps itself open while the file picker has
   focus (`holdOpen`); the popup refuses import (a file dialog closes the popup).
 - Extension ID pinned by `key` in the manifest (public key only; the private key wasn't kept — not needed unpacked):
-  `jkoklgjjpogkefkdfbfknllnjihelmfb`. E2E reloads the extension by loading the folder again (`chrome.runtime.reload()`
+  `jkoklgjjpogkefkdfbfknllnjihelmfb`. Changing the ID under an installed unpacked extension (adding/changing `key`,
+  then ↻) left a hidden record with the old ID for the same path (`disable_reasons [4]` in the profile's Secure
+  Preferences); at every Chrome start the two clashed and Summon vanished. Remove in the UI doesn't touch it — fix:
+  build without `key`, Load unpacked (takes the old ID), Remove, rebuild, Load unpacked. Never change `key` again.
+  E2E reloads the extension by loading the folder again (`chrome.runtime.reload()`
   doesn't come back under Puppeteer) and checks the old context really died.
 
 ## Search (`src/search.ts`)

@@ -46,6 +46,12 @@ Then press ↻ on the extension card. Avoid **Remove** + Load unpacked and movin
 treat it as a new extension, and anything Summon stores locally is lost. A changed `suggested_key` only applies on
 first install — set the shortcut by hand at `chrome://extensions/shortcuts` instead of reinstalling.
 
+The extension ID is pinned by `key` in the manifest, so it doesn't depend on the folder. If the `key` ever changes
+(or you update from a build before it was added), ↻ is not enough: Chrome keeps a hidden record under the old ID for
+the same folder, and at the next start the two clash and Summon disappears. Remove it, then Load unpacked again. If it
+still vanishes after a restart, the hidden record is there: build without `key`, Load unpacked (it takes the old ID),
+Remove it, then build normally and Load unpacked.
+
 ## Tests
 
 ```sh

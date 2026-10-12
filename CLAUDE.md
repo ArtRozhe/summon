@@ -65,8 +65,9 @@ User-facing docs, run instructions and the manual checklist are in `README.md`; 
 - Tab choice among duplicates: current tab → current window → most recently used.
 - **Tab actions** (`tabFor` = the tab Enter would switch to; bookmarks only where open): ⌘K opens an actions menu in
   place of the results (variant "A" of two rendered; header row = the result, Esc back to the same row): the Enter /
-  ⌥↵ / ⇧↵ actions, Move to this window (tab in another window), Move to / Open in new window, Copy URL (⌘C), Close tab
-  (⇧⌘⌫). Riskier commands get harder chords (user's rule): close is ⇧⌘⌫, not ⌘⌫ (that also clears the field). Close
+  ⌥↵ / ⇧↵ actions, Move to this window (tab in another window), Move to / Open in new window, Open in background (bookmark not
+  open: next to the current tab via `openerTabId`, panel stays), Copy URL (⌘C), Close tab (⇧⌘⌫). Extra modifiers
+  (⌘↵ background, ⇧⌘↵ new window) were dropped from the roadmap in favour of these menu rows. Riskier commands get harder chords (user's rule): close is ⇧⌘⌫, not ⌘⌫ (that also clears the field). Close
   keeps the panel open on the same row; ⌘Z reopens via `tabs.create` at the old window/index (no `sessions`, history
   lost). Keys by `e.code` (any layout). Copy: async clipboard where available, else hidden field + `execCommand`
   (plain-http pages have no `navigator.clipboard`; E2E pastes it back). ⌘M / ⌘N / ⌘T / ⌘W are taken by macOS/Chrome.

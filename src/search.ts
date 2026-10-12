@@ -91,30 +91,42 @@ function prepareTitle(title: string): PreparedTitle {
   };
 }
 
+/** One piece of a hump match: `length` letters from the start of word `word`. */
+export interface HumpPiece {
+  word: number;
+  length: number;
+}
+
 /**
- * Splits the token into prefixes of words taken in order, using at least two words.
- * 2: from the first word without skipping any; 1: with skipped words; 0: no match.
+ * Splits the token into prefixes of words taken in order, using at least two words: "apd1" over
+ * [app, dev, 1] → ap|d|1. `skip`: words may be skipped; otherwise it must start at the first word and
+ * use consecutive words. Returns the pieces, or null.
  */
-export function humpMatch(token: string, humps: string[]): 0 | 1 | 2 {
-  const memo = new Map<string, boolean>();
-  const fits = (i: number, j: number, used: number, skip: boolean): boolean => {
-    if (i === token.length) return used >= 2;
-    const key = `${i},${j},${Math.min(used, 2)},${skip}`;
-    const known = memo.get(key);
-    if (known !== undefined) return known;
-    let ok = false;
-    for (let k = j; k < humps.length && !ok; k++) {
+export function humpPath(token: string, humps: string[], skip: boolean): HumpPiece[] | null {
+  const dead = new Set<string>();
+  const walk = (i: number, j: number, used: number): HumpPiece[] | null => {
+    if (i === token.length) return used >= 2 ? [] : null;
+    const key = `${i},${j},${Math.min(used, 2)}`;
+    if (dead.has(key)) return null;
+    for (let k = j; k < humps.length; k++) {
       if (k > j && !skip) break;
       const hump = humps[k]!;
-      for (let len = Math.min(hump.length, token.length - i); len >= 1 && !ok; len--) {
-        if (hump.startsWith(token.slice(i, i + len))) ok = fits(i + len, k + 1, used + 1, skip);
+      for (let length = Math.min(hump.length, token.length - i); length >= 1; length--) {
+        if (!hump.startsWith(token.slice(i, i + length))) continue;
+        const rest = walk(i + length, k + 1, used + 1);
+        if (rest) return [{ word: k, length }, ...rest];
       }
     }
-    memo.set(key, ok);
-    return ok;
+    dead.add(key);
+    return null;
   };
-  if (fits(0, 0, 0, false)) return 2;
-  return fits(0, 0, 0, true) ? 1 : 0;
+  return walk(0, 0, 0);
+}
+
+/** 2: from the first word without skipping any; 1: with skipped words; 0: no match. */
+export function humpMatch(token: string, humps: string[]): 0 | 1 | 2 {
+  if (humpPath(token, humps, false)) return 2;
+  return humpPath(token, humps, true) ? 1 : 0;
 }
 
 function initials(humps: string[]): string {

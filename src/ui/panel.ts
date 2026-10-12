@@ -11,6 +11,7 @@ import {
   prefersSwitch,
   size,
 } from '../memory';
+import { highlight, type Range } from '../highlight';
 import { layoutVariants } from '../layout';
 import { isPinned, prepare, search, type Prepared } from '../search';
 import type { Action, Context, Item, Modifiers } from '../types';
@@ -97,7 +98,21 @@ function badgesFor(item: Item, ctx: Context): string[] {
   return badges;
 }
 
-function renderRow(item: Item, index: number, ctx: Context, pinned: boolean): HTMLLIElement {
+/** Fills `el` with `text`, wrapping the highlighted ranges in `.hl` spans. */
+function setMarkedText(el: HTMLElement, text: string, ranges: Range[]): void {
+  let at = 0;
+  for (const [start, end] of ranges) {
+    if (start > at) el.append(text.slice(at, start));
+    const mark = document.createElement('span');
+    mark.className = 'hl';
+    mark.textContent = text.slice(start, end);
+    el.append(mark);
+    at = end;
+  }
+  if (at < text.length) el.append(text.slice(at));
+}
+
+function renderRow(item: Item, index: number, ctx: Context, pinned: boolean, query: string): HTMLLIElement {
   const li = document.createElement('li');
   li.id = `summon-option-${index}`;
   li.className = pinned ? 'row pinned' : 'row';
@@ -111,12 +126,13 @@ function renderRow(item: Item, index: number, ctx: Context, pinned: boolean): HT
   const text = document.createElement('span');
   text.className = 'text';
   const titleEl = document.createElement('span');
+  const marks = highlight(title, url, query);
   titleEl.className = 'title';
-  titleEl.textContent = title;
+  setMarkedText(titleEl, title, marks.title);
   titleEl.title = title;
   const urlEl = document.createElement('span');
   urlEl.className = 'url';
-  urlEl.textContent = url;
+  setMarkedText(urlEl, url, marks.url);
   urlEl.title = item.url;
   text.append(titleEl, urlEl);
 
@@ -283,7 +299,7 @@ export function mountPanel(panel: HTMLElement, shell: PanelShell): { input: HTML
     learned = learnedForAny(memory, variants, Date.now());
     results = search(prepared, query, ctx, learned);
     selected = 0;
-    list.replaceChildren(...results.map((item, i) => renderRow(item, i, ctx, i === 0 && isPinned(item, learned))));
+    list.replaceChildren(...results.map((item, i) => renderRow(item, i, ctx, i === 0 && isPinned(item, learned), query)));
     input.setAttribute('aria-expanded', String(results.length > 0));
 
     if (results.length) {

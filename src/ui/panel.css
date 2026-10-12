@@ -205,3 +205,16 @@ kbd {
   background: linear-gradient(180deg, #8b8b96, #6b6b75);
   font-size: 16px;
 }
+
+/*
+ * Characters that matched the query: a faint violet wash (keeps single abbreviation letters visible)
+ * and a violet-leaning text color (keeps whole-word matches light). Alternatives tried: text color only,
+ * wash only — see CLAUDE.md.
+ */
+.hl {
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--spark) 22%, transparent);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--spark) 22%, transparent);
+  color: color-mix(in oklab, var(--spark) 45%, var(--fg));
+  font-weight: 500;
+}

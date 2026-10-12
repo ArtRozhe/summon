@@ -123,6 +123,9 @@ like `PRs` stays whole), so camel-cased bookmark names work as abbreviations, li
 | `apd1`, `gtrans` | AppDev1, GoogleTranslate… | several letters per word, from the first word |
 | `ad` | AppDev1, AppDev2, then AppInfraDeploy | words may be skipped, ranked lower |
 
+Matched characters are highlighted in the title or the URL — for an abbreviation, the letters it was made of
+(`ad1` → **A**pp**D**ev**1**).
+
 Typed with the wrong keyboard layout? Summon reads the query in the other layout too (Russian ЙЦУКЕН ↔ QWERTY):
 `фв1` finds what `ad1` finds, `rjn` finds «кот». A match as typed ranks a little above the same match after switching.
 

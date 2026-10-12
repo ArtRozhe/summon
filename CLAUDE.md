@@ -93,7 +93,10 @@ over our own gradient; blobs are px-sized and anchored to the top corners so the
 Selection = white plate + lavender ring (same violet as ✦) + ↵ drawn as a small key (like the hint line).
 ✦ (usual pick) is a soft violet from the icon (`--spark`, lighter lavender in dark). System blue and the full icon
 gradient were both too loud for small glyphs on dark glass (user's call). Site tiles: first letter of the full hostname, hue from the hostname.
-Width 640px. For visual changes, render options from the real popup (Puppeteer) and show them before applying.
+Width 640px.
+Match highlight (`src/highlight.ts`, `.hl`): "E" = faint violet wash + violet-leaning text. The user hesitated between
+violet text only (best for whole words) and wash only (best for single abbreviation letters); E is on trial — if it
+annoys, switch `.hl` in `panel.css` to one of those. For visual changes, render options from the real popup (Puppeteer) and show them before applying.
 
 ## Testing
 

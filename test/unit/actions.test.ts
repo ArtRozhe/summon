@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { describe as describeAction, pickTab, resolveAction, similarOutcome } from '../../src/actions';
+import { describe as describeAction, pickTab, resolveAction, similarOutcome, tabFor } from '../../src/actions';
 import type { Context } from '../../src/types';
 import { bookmark, tab } from './fixtures';
 
@@ -140,5 +140,14 @@ describe('blank Summon tab (new tab page)', () => {
     const app = bookmark('App', 'https://app.example/?team=a', [], [other]);
     expect(similarOutcome(app, {}, resolveAction(app, {}, blank)!)).toBe('new');
     expect(describeAction(app, blank)).toEqual({ enter: 'Open in this tab', shiftEnter: undefined, altEnter: 'Switch to open tab' });
+  });
+});
+
+describe('tabFor (tab actions)', () => {
+  it('is the tab Enter would switch to; a closed bookmark has none', () => {
+    const t = tab('T', 'https://t.example/', { tabId: 7, windowId: 2 });
+    expect(tabFor(t, ctx)?.tabId).toBe(7);
+    expect(tabFor(bookmark('B', 'https://b.example/', [{ tabId: 8, windowId: 1, lastAccessed: 1 }]), ctx)?.tabId).toBe(8);
+    expect(tabFor(bookmark('B', 'https://b.example/', [], [{ tabId: 9, windowId: 1, lastAccessed: 1 }]), ctx)).toBeUndefined();
   });
 });

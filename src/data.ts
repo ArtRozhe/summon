@@ -6,7 +6,7 @@ interface BookmarkNode {
   url?: string;
   children?: BookmarkNode[];
 }
-type Tab = Pick<chrome.tabs.Tab, 'id' | 'windowId' | 'title' | 'url' | 'pendingUrl' | 'lastAccessed'>;
+type Tab = Pick<chrome.tabs.Tab, 'id' | 'windowId' | 'title' | 'url' | 'pendingUrl' | 'lastAccessed'> & { index?: number };
 
 /**
  * The parser's canonical form (lowercase scheme and host, trailing slash on a bare origin).
@@ -87,7 +87,7 @@ export function buildItems(tabs: Tab[], bookmarkTree: BookmarkNode[]): Item[] {
     const url = tab.url || tab.pendingUrl;
     if (tab.id === undefined || !url) continue;
     openTabs.push({
-      ref: { tabId: tab.id, windowId: tab.windowId, lastAccessed: tab.lastAccessed ?? 0 },
+      ref: { tabId: tab.id, windowId: tab.windowId, lastAccessed: tab.lastAccessed ?? 0, index: tab.index },
       title: tab.title || url,
       url: parseUrl(url),
     });

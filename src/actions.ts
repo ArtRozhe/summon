@@ -49,6 +49,11 @@ function resolve(item: Item | undefined, mods: Modifiers, ctx: Context, preferSw
   return switchTo(item.tabs, ctx) ?? { type: 'open-new', url: item.url };
 }
 
+/** The tab that tab actions (close, move here) apply to: the one Enter would switch to. Bookmarks: only where open. */
+export function tabFor(item: Item | undefined, ctx: Context): TabRef | undefined {
+  return item ? pickTab(item.tabs, ctx) : undefined;
+}
+
 /** What Enter / ⇧↵ / ⌥↵ will do, for the hint line. */
 export function describe(
   item: Item | undefined,
@@ -104,6 +109,35 @@ export async function execute(action: Action, ctx: Context): Promise<void> {
       break;
     case 'open-here':
       calls.push(chrome.tabs.update(action.tabId, { url: action.url }));
+      break;
+    case 'close':
+      calls.push(chrome.tabs.remove(action.tabId));
+      break;
+    case 'reopen': {
+      const url = action.url;
+      // Its window may be gone by now: then the current one.
+      calls.push(
+        chrome.tabs
+          .create({ url, active: false, windowId: action.windowId, index: action.index })
+          .catch(() => chrome.tabs.create({ url, active: false })),
+      );
+      break;
+    }
+    case 'move-here': {
+      const tabId = action.tabId;
+      // Activate once it has arrived, so it becomes the active tab of this window. Moving doesn't close the
+      // popup, so the activation still goes out from it.
+      const moved =
+        ctx.currentWindowId === undefined
+          ? Promise.resolve()
+          : chrome.tabs.move(tabId, { windowId: ctx.currentWindowId, index: -1 });
+      calls.push(moved.then(() => chrome.tabs.update(tabId, { active: true })));
+      if (ctx.blankTab && ctx.currentTabId !== undefined) calls.push(chrome.tabs.remove(ctx.currentTabId));
+      break;
+    }
+    case 'new-window':
+      calls.push(chrome.windows.create(action.tabId !== undefined ? { tabId: action.tabId, focused: true } : { url: action.url, focused: true }));
+      if (ctx.blankTab && ctx.currentTabId !== undefined) calls.push(chrome.tabs.remove(ctx.currentTabId));
       break;
     case 'none':
       break;

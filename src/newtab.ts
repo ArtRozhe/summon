@@ -72,6 +72,7 @@ function start(): void {
       void chrome.runtime.sendMessage({ type: 'record', event } satisfies OverlayRequest);
     },
     perform: (action, ctx) => execute(action, ctx),
+    apply: (action, ctx) => execute(action, ctx),
     // Nothing to close: Esc clears the field.
     escapeLabel: 'Clear',
     close() {

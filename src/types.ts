@@ -2,6 +2,8 @@ export interface TabRef {
   tabId: number;
   windowId: number;
   lastAccessed: number;
+  /** Position in its window, to reopen a closed tab where it was. */
+  index?: number;
 }
 
 /**
@@ -41,4 +43,9 @@ export type Action =
   | { type: 'open-new'; url: string }
   | { type: 'open-here'; tabId: number; url: string }
   /** The target is already the current tab: just close the panel. */
-  | { type: 'none' };
+  | { type: 'none' }
+  /** Tab actions (⌘K, ⇧⌘⌫): the panel stays open for close and reopen. */
+  | { type: 'close'; tabId: number }
+  | { type: 'reopen'; url: string; windowId: number; index?: number }
+  | { type: 'move-here'; tabId: number }
+  | { type: 'new-window'; tabId?: number; url: string };

@@ -52,6 +52,7 @@ const { input } = mountPanel(panel, {
     await execute(action, ctx);
     window.close();
   },
+  apply: (action, ctx) => execute(action, ctx),
   close: () => window.close(),
   loaded: () => performance.mark('summon:first-results'),
 });

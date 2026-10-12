@@ -111,6 +111,7 @@ function createOverlay(): NonNullable<typeof globalThis.__summonOverlay> {
         close();
         if (action.type !== 'none') await send({ type: 'execute', action });
       },
+      apply: (action) => send({ type: 'execute', action }),
       close,
       icons: (urls) => send({ type: 'icons', urls }),
       importMemory: (memory) => send({ type: 'import', memory }),

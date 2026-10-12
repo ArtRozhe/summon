@@ -9,6 +9,9 @@ Keyboard search across open tabs and bookmarks for Chrome. One shortcut, a few l
 | Enter | Switch to the tab (and its window) | Switch to it if the bookmark is open, otherwise open in a new tab |
 | Shift+Enter | Switch to the tab | Open in the current tab |
 | Option+Enter | Switch to the tab | Switch to a *similar* open tab — the same site under the bookmark's path, other parameters |
+| ⌘K | Actions for the selected result: everything below, plus move to this / a new window | |
+| ⌘C | Copy the URL (when no text is selected in the field) | Copy the URL |
+| ⇧⌘⌫ | Close the tab; the panel stays, ⌘Z reopens it | Close its tab, if open |
 | ↑ / ↓ | Move selection | |
 | `>` | Commands: export / import what Summon has learned | |
 | Esc | Close | |

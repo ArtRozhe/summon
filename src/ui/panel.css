@@ -220,6 +220,42 @@ kbd {
   font-size: 16px;
 }
 
+/* ⌘K: which result the actions below are for. */
+.menu-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 20px 2px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.menu-head[hidden] { display: none; }
+
+.menu-head span {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.menu-head .tile {
+  width: 20px;
+  height: 20px;
+  border-radius: 5px;
+  font-size: 11px;
+}
+
+.row.menu .shortcut {
+  margin: 0 0 0 auto;
+  color: var(--muted);
+}
+
+.row.menu[aria-selected="true"] .shortcut {
+  margin-right: 8px;
+}
+
 /*
  * Characters that matched the query: a faint violet wash (keeps single abbreviation letters visible)
  * and a violet-leaning text color (keeps whole-word matches light). Alternatives tried: text color only,

@@ -123,5 +123,8 @@ like `PRs` stays whole), so camel-cased bookmark names work as abbreviations, li
 | `apd1`, `gtrans` | AppDev1, GoogleTranslate… | several letters per word, from the first word |
 | `ad` | AppDev1, AppDev2, then AppInfraDeploy | words may be skipped, ranked lower |
 
-They need the name in the title — a domain alone (`github.com`) has no word boundaries, and arbitrary
+Typed with the wrong keyboard layout? Summon reads the query in the other layout too (Russian ЙЦУКЕН ↔ QWERTY):
+`фв1` finds what `ad1` finds, `rjn` finds «кот». A match as typed ranks a little above the same match after switching.
+
+Initials need the name in the title — a domain alone (`github.com`) has no word boundaries, and arbitrary
 abbreviations (`fb` → Meta) are not supported.

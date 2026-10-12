@@ -524,3 +524,21 @@ describe('export and import', () => {
     expect(await text(panel, '.status')).toContain('Import works on a regular web page');
   });
 });
+
+describe('wrong keyboard layout', () => {
+  it('finds results and commands typed with the Russian layout on', async () => {
+    const [here] = await seed(h, [{ url: 'http://blank.test/', title: 'Blank' }], [
+      { title: 'AppDev1', url: 'http://dev1.app.test/' },
+      { title: 'AppDev2', url: 'http://dev2.app.test/' },
+    ]);
+    let panel = await openPanel(h, here!);
+    await search(panel, 'фв1');
+    expect(await titles(panel)).toEqual(['AppDev1']);
+    await press(panel, 'Escape');
+    await waitClosed(panel);
+
+    panel = await openPanel(h, here!);
+    await search(panel, 'Ю учзщке');
+    expect(await titles(panel)).toEqual(['Export Summon data']);
+  });
+});

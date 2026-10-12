@@ -164,6 +164,17 @@ export function learnedFor(memory: Memory, rawQuery: string, now: number): Learn
   return { pinned, bonus };
 }
 
+/**
+ * Learned for any of several spellings of one query (as typed, other keyboard layout): the strongest bonus per
+ * result, and the first spelling with a pinned result.
+ */
+export function learnedForAny(memory: Memory, queries: string[], now: number): Learned {
+  const all = queries.map((q) => learnedFor(memory, q, now));
+  const bonus = new Map<string, number>();
+  for (const learned of all) for (const [key, value] of learned.bonus) bonus.set(key, Math.max(bonus.get(key) ?? 0, value));
+  return { pinned: all.find((l) => l.pinned)?.pinned, bonus };
+}
+
 export function prefersSwitch(memory: Memory, key: string): boolean {
   return memory.similar[key]?.preferSwitch ?? false;
 }

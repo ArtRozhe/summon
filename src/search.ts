@@ -1,3 +1,4 @@
+import { layoutVariants } from './layout';
 import { type Learned, memoryKey } from './memory';
 import type { Context, Item } from './types';
 
@@ -17,6 +18,8 @@ const SCORE = {
   urlRest: 10,
 };
 const OPEN_BONUS = 5;
+/** A match only after switching the keyboard layout ranks a bit below the same match as typed. */
+const LAYOUT_PENALTY = 5;
 const CURRENT_PENALTY = 10;
 
 interface PreparedTitle {
@@ -227,8 +230,17 @@ function recent(prepared: Prepared[], ctx: Context, limit: number): Item[] {
 export function search(prepared: Prepared[], query: string, ctx: Context, learned?: Learned): Item[] {
   const tokens = tokenize(query);
   if (!tokens.length) return recent(prepared, ctx, MAX_RESULTS);
+  // The query as typed and as it reads in the other keyboard layout ("фв1" → "ad1"); each result takes its best.
+  const variants = layoutVariants(query).map(tokenize);
+  const best = (p: Prepared): number =>
+    Math.max(
+      ...variants.map((v, i) => {
+        const s = score(p, v, ctx);
+        return s && i ? s - LAYOUT_PENALTY : s;
+      }),
+    );
   const ranked = prepared
-    .map((p) => ({ p, s: score(p, tokens, ctx) }))
+    .map((p) => ({ p, s: best(p) }))
     .filter((r) => r.s > 0)
     .map((r) => ({ ...r, s: r.s + (learned?.bonus.get(r.p.key) ?? 0) }))
     .sort(compare);

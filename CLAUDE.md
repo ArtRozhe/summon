@@ -78,6 +78,10 @@ Humps = CamelHumps: the user names bookmarks in PascalCase on purpose (`KitDev`,
 `AppDev1`) and types abbreviations (`kd`, `gter`, `ad1`, `apd1`). Words split at camel case and letter/digit
 boundaries; plural acronyms (`PRs`) stay whole. Substrings across camel words (`td` in KitDev) don't count.
 Hump sequences: whole title, each title segment, each camel word; a hump match needs ≥2 words.
+Wrong layout (`src/layout.ts`): every query is also read in the other layout (Russian PC ЙЦУКЕН ↔ QWERTY, only
+when it has letters of that script); each result takes its best score, −5 if only the converted spelling matched.
+Memory is looked up for all spellings (`learnedForAny`); picks are recorded under the query as typed. Commands work
+with a shifted Ю (= `>`); lowercase ю never turns a search into commands.
 Search by folder names was considered and dropped: the user's folders are for order, names carry the abbreviations.
 Known trade-off: an exact word ("Using git rebase") beats a domain prefix (`github.com`) for `git` — lower
 `exactWord` if that annoys in practice.

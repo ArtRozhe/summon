@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { emptyMemory, learnedFor, record } from '../../src/memory';
+import { layoutVariants } from '../../src/layout';
+import { emptyMemory, learnedFor, learnedForAny, record } from '../../src/memory';
 import { isPinned, MAX_RESULTS, prepare, search } from '../../src/search';
 import type { Context, Item } from '../../src/types';
 import { bookmark, tab } from './fixtures';
@@ -172,5 +173,34 @@ describe('learned picks', () => {
   it('never brings in a result that does not match', () => {
     const learned = learnedFor(twice('ad', 'https://docs.example/'), 'ad', now + 2);
     expect(search(items.map(prepare), 'ad', ctx, learned).map((i) => i.titles[0])).toEqual(['AppDev1', 'AppDev2']);
+  });
+});
+
+describe('wrong keyboard layout', () => {
+  const items = [
+    bookmark('AppDev1', 'https://dev1.app.example/'),
+    bookmark('TranslateEnglishRussian', 'https://translate.example/?sl=en&tl=ru'),
+    bookmark('Котики', 'https://cats.example/'),
+  ];
+
+  it('finds results typed with the other layout on', () => {
+    expect(titlesFor(items, 'фв1')).toEqual(['AppDev1']);
+    expect(titlesFor(items, 'еук')).toEqual(['TranslateEnglishRussian']);
+    expect(titlesFor(items, 'rjnbrb')).toEqual(['Котики']);
+  });
+
+  it('ranks a match as typed above the same strength after switching layouts', () => {
+    // "ao" and "фщ" are the same keys: each matches one title exactly as typed and the other after switching.
+    const mixed = [bookmark('ao', 'https://a.example/'), bookmark('фщ', 'https://b.example/')];
+    expect(titlesFor(mixed, 'ao')).toEqual(['ao', 'фщ']);
+    expect(titlesFor(mixed, 'фщ')).toEqual(['фщ', 'ao']);
+  });
+
+  it('uses habits learned in either layout', () => {
+    const now = Date.UTC(2026, 9, 1);
+    const twice = record(record(emptyMemory(), { query: 'ad', key: 'https://dev2.app.example/' }, now), { query: 'ad', key: 'https://dev2.app.example/' }, now + 1);
+    const apps = [bookmark('AppDev1', 'https://dev1.app.example/'), bookmark('AppDev2', 'https://dev2.app.example/')];
+    const learned = learnedForAny(twice, layoutVariants('фв'), now + 2);
+    expect(search(apps.map(prepare), 'фв', ctx, learned).map((i) => i.titles[0])).toEqual(['AppDev2', 'AppDev1']);
   });
 });

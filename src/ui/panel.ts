@@ -3,7 +3,7 @@ import {
   emptyMemory,
   exportMemory,
   type Learned,
-  learnedFor,
+  learnedForAny,
   type Memory,
   memoryKey,
   parseExport,
@@ -11,6 +11,7 @@ import {
   prefersSwitch,
   size,
 } from '../memory';
+import { layoutVariants } from '../layout';
 import { isPinned, prepare, search, type Prepared } from '../search';
 import type { Action, Context, Item, Modifiers } from '../types';
 
@@ -263,8 +264,11 @@ export function mountPanel(panel: HTMLElement, shell: PanelShell): { input: HTML
   function update(): void {
     if (!ready) return;
     const query = input.value;
-    if (query.trimStart().startsWith(COMMAND_PREFIX)) {
-      const filter = query.trimStart().slice(COMMAND_PREFIX.length).trim().toLowerCase();
+    const variants = layoutVariants(query);
+    // ">" typed with the Russian layout on is "Ю"; the command name then reads in the other layout too.
+    const commandQuery = variants.find((v) => v.trimStart().startsWith(COMMAND_PREFIX));
+    if (commandQuery !== undefined) {
+      const filter = commandQuery.trimStart().slice(COMMAND_PREFIX.length).trim().toLowerCase();
       commands = allCommands.filter((c) => c.title.toLowerCase().includes(filter));
       results = [];
       selected = 0;
@@ -276,7 +280,7 @@ export function mountPanel(panel: HTMLElement, shell: PanelShell): { input: HTML
       return;
     }
     commands = null;
-    learned = learnedFor(memory, query, Date.now());
+    learned = learnedForAny(memory, variants, Date.now());
     results = search(prepared, query, ctx, learned);
     selected = 0;
     list.replaceChildren(...results.map((item, i) => renderRow(item, i, ctx, i === 0 && isPinned(item, learned))));

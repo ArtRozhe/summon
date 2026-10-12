@@ -7,19 +7,21 @@ await rm('dist', { recursive: true, force: true });
 await mkdir('dist', { recursive: true });
 await cp('static', 'dist', { recursive: true });
 
-const options = {
-  entryPoints: ['src/popup.ts'],
+const common = {
   outdir: 'dist',
   bundle: true,
-  format: 'esm',
   target: 'chrome120',
   sourcemap: 'linked',
   logLevel: 'info',
 };
+const builds = [
+  { ...common, entryPoints: ['src/popup.ts', 'src/background.ts'], format: 'esm' },
+  // Injected with scripting.executeScript, which runs classic scripts only.
+  { ...common, entryPoints: ['src/overlay.ts'], format: 'iife' },
+];
 
 if (watch) {
-  const ctx = await esbuild.context(options);
-  await ctx.watch();
+  for (const options of builds) await (await esbuild.context(options)).watch();
 } else {
-  await esbuild.build(options);
+  await Promise.all(builds.map((options) => esbuild.build(options)));
 }

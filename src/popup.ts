@@ -217,6 +217,8 @@ async function init(): Promise<void> {
     prepared = buildItems(otherTabs, tree).map(prepare);
     ready = true;
     update();
+    // Timing hook for diagnostics: compare with the navigation's loadEventEnd.
+    performance.mark('summon:first-results');
   } catch (error) {
     setStatus(`Couldn’t read tabs or bookmarks: ${error instanceof Error ? error.message : String(error)}`, true);
   } finally {

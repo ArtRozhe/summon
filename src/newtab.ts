@@ -8,6 +8,7 @@ import { execute, resolveAction } from './actions';
 import type { OverlayRequest } from './background';
 import { buildItems } from './data';
 import { cachedIcons, type IconMap, loadIcons } from './favicons';
+import { disableHistory, enableHistory, historyEnabled, historyItems } from './history';
 import { type Memory, memoryKey, prefersSwitch } from './memory';
 import { MAX_FREQUENT, frequentItems, type StaleTab, staleTabs } from './newtab-extras';
 import { REPLACED } from './newtab-focus';
@@ -57,7 +58,7 @@ function start(): void {
       ctx = { currentTabId: tab?.id, currentWindowId: tab?.windowId, blankTab: true };
       memory = loaded;
       frequent = frequentItems(loaded, items, Date.now());
-      const known = await cachedIcons(items.map((i) => i.url));
+      const [known, history] = await Promise.all([cachedIcons(items.map((i) => i.url)), historyEnabled()]);
       chipIcons = known;
       renderChips();
       void loadIcons(frequent.map((i) => i.url)).then((found) => {
@@ -65,9 +66,12 @@ function start(): void {
         renderChips();
       });
       renderStale(staleTabs(tabs, Date.now(), ownPages));
-      return { items, ctx, memory: loaded, icons: known };
+      return { items, ctx, memory: loaded, icons: known, historyEnabled: history };
     },
     icons: loadIcons,
+    history: historyItems,
+    enableHistory,
+    disableHistory: async () => void (await disableHistory()),
     remember(event) {
       void chrome.runtime.sendMessage({ type: 'record', event } satisfies OverlayRequest);
     },

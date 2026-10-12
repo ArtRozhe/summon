@@ -13,6 +13,9 @@
     "storage",
     "favicon"
   ],
+  "optional_permissions": [
+    "history"
+  ],
   "action": {
     "default_title": "Summon",
     "default_icon": {

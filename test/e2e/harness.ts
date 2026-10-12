@@ -1,4 +1,4 @@
-import { mkdir } from 'node:fs/promises';
+import { cp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { createServer, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { resolve } from 'node:path';
@@ -73,7 +73,23 @@ function startServer(titles: Map<string, string>): Promise<Server> {
 
 export const pageTitles = new Map<string, string>();
 
-export async function launch(): Promise<Harness> {
+async function extensionDir(grant: string[]): Promise<string> {
+  if (!grant.length) return resolve('dist');
+  const dir = resolve('test-results', 'dist-granted');
+  await rm(dir, { recursive: true, force: true });
+  await cp(resolve('dist'), dir, { recursive: true });
+  const manifest = JSON.parse(await readFile(resolve(dir, 'manifest.json'), 'utf8'));
+  manifest.permissions = [...manifest.permissions, ...grant];
+  manifest.optional_permissions = (manifest.optional_permissions ?? []).filter((p: string) => !grant.includes(p));
+  await writeFile(resolve(dir, 'manifest.json'), JSON.stringify(manifest));
+  return dir;
+}
+
+/**
+ * `grant`: optional permissions to grant up front. Chrome asks for them in a prompt automation can't click,
+ * so the extension is installed from a copy of `dist` with them moved into `permissions`.
+ */
+export async function launch(options: { grant?: string[] } = {}): Promise<Harness> {
   await mkdir(RESULTS_DIR, { recursive: true });
   const server = await startServer(pageTitles);
   const { port } = server.address() as AddressInfo;
@@ -82,7 +98,7 @@ export async function launch(): Promise<Harness> {
     enableExtensions: true,
     args: [`--host-resolver-rules=MAP * 127.0.0.1:${port}`, '--disable-features=HttpsUpgrades', '--window-size=1200,800'],
   });
-  const extensionId = await browser.installExtension(resolve('dist'));
+  const extensionId = await browser.installExtension(await extensionDir(options.grant ?? []));
   const control = await browser.newPage();
   await control.goto(`chrome-extension://${extensionId}/popup.html?control`);
   return {

@@ -13,8 +13,9 @@ import {
 } from '../memory';
 import type { IconMap } from '../favicons';
 import { highlight, type Range } from '../highlight';
+import { visitedAgo } from '../history';
 import { layoutVariants } from '../layout';
-import { isPinned, prepare, search, type Prepared } from '../search';
+import { isPinned, MAX_RESULTS, prepare, search, type Prepared } from '../search';
 import type { Action, Context, Item, Modifiers } from '../types';
 
 const LOADING_DELAY_MS = 150;
@@ -22,7 +23,12 @@ const LOADING_DELAY_MS = 150;
 /** Where the panel lives: the action popup or the overlay inside a page. */
 export interface PanelShell {
   /** `icons`: site icons already known, so the first results show them at once. */
-  load(): Promise<{ items: Item[]; ctx: Context; memory: Memory; icons?: IconMap }>;
+  load(): Promise<{ items: Item[]; ctx: Context; memory: Memory; icons?: IconMap; historyEnabled?: boolean }>;
+  /** Pages from browsing history, minus `known` URLs; empty when history search is off. */
+  history?(known: string[]): Promise<Item[]>;
+  /** Asks Chrome for the history permission (needs a Summon page: the new tab). Absent where it can't. */
+  enableHistory?(): Promise<boolean>;
+  disableHistory?(): Promise<void>;
   /** Site icons for these result URLs (fetched if needed). Absent: letter tiles only. */
   icons?(urls: string[]): Promise<IconMap>;
   /** Saves a pick to memory (fire and forget). */
@@ -146,6 +152,7 @@ export function renderTile(item: Item, icon?: string | null): HTMLSpanElement {
 }
 
 function badgesFor(item: Item, ctx: Context): string[] {
+  if (item.kind === 'history') return item.lastVisit ? [visitedAgo(item.lastVisit)] : [];
   const badges = [item.kind === 'tab' ? 'Tab' : 'Bookmark'];
   if (item.tabs.some((t) => t.tabId === ctx.currentTabId)) badges.push('Current');
   else if (item.kind === 'bookmark' && item.tabs.length) badges.push('Open');
@@ -286,6 +293,10 @@ export function mountPanel(panel: HTMLElement, shell: PanelShell): { input: HTML
   let memory: Memory = emptyMemory();
   let learned: Learned | undefined;
   let prepared: Prepared[] = [];
+  let historyOn = false;
+  let historyPrepared: Prepared[] = [];
+  /** Index of the first history result in `results` (they follow tabs and bookmarks under a header). */
+  let historyStart = -1;
   let results: Item[] = [];
   /** Shown instead of results while the query starts with ">". */
   let commands: Command[] | null = null;
@@ -307,6 +318,34 @@ export function mountPanel(panel: HTMLElement, shell: PanelShell): { input: HTML
   const count = (): number => (menu ? menu.actions.length : commands ? commands.length : results.length);
   /** The result the keys act on: the selected one, or the one whose actions menu is open. */
   const current = (): Item | undefined => (menu ? menu.item : commands ? undefined : results[selected]);
+
+  const historyCommand = (): Command =>
+    historyOn
+      ? {
+          title: 'Disable history search',
+          detail: 'Stop listing pages from browsing history and give the permission back',
+          glyph: '⟲',
+          async run() {
+            await shell.disableHistory?.();
+            historyOn = false;
+            historyPrepared = [];
+            return 'History search is off';
+          },
+        }
+      : {
+          title: 'Enable history search',
+          detail: 'Also list recent pages you visited, below tabs and bookmarks',
+          glyph: '⟲',
+          async run() {
+            if (!shell.enableHistory) {
+              throw new Error('Open a new tab and run this command there — Chrome asks for the permission only on Summon’s own page');
+            }
+            if (!(await shell.enableHistory())) return 'Chrome didn’t grant access to history';
+            historyOn = true;
+            loadHistory();
+            return 'History search is on — pages you visited show below tabs and bookmarks';
+          },
+        };
 
   const allCommands: Command[] = [
     {
@@ -366,11 +405,11 @@ export function mountPanel(panel: HTMLElement, shell: PanelShell): { input: HTML
   function select(index: number): void {
     if (!count()) return;
     selected = (index + count()) % count();
-    for (const row of list.children) {
+    for (const row of list.querySelectorAll('.row')) {
       row.setAttribute('aria-selected', String(Number((row as HTMLElement).dataset.index) === selected));
     }
     input.setAttribute('aria-activedescendant', `summon-option-${selected}`);
-    list.children[selected]?.scrollIntoView({ block: 'nearest' });
+    list.querySelector(`#summon-option-${selected}`)?.scrollIntoView({ block: 'nearest' });
     renderHints();
   }
 
@@ -383,7 +422,7 @@ export function mountPanel(panel: HTMLElement, shell: PanelShell): { input: HTML
     const commandQuery = variants.find((v) => v.trimStart().startsWith(COMMAND_PREFIX));
     if (commandQuery !== undefined) {
       const filter = commandQuery.trimStart().slice(COMMAND_PREFIX.length).trim().toLowerCase();
-      commands = allCommands.filter((c) => c.title.toLowerCase().includes(filter));
+      commands = [...allCommands, historyCommand()].filter((c) => c.title.toLowerCase().includes(filter));
       results = [];
       selected = 0;
       list.replaceChildren(...commands.map(renderCommandRow));
@@ -396,10 +435,27 @@ export function mountPanel(panel: HTMLElement, shell: PanelShell): { input: HTML
     commands = null;
     learned = learnedForAny(memory, variants, Date.now());
     results = search(prepared, query, ctx, learned);
+    // History fills the list when tabs and bookmarks don't, always below them (Enter on the first stays the same).
+    historyStart = -1;
+    if (query.trim() && results.length < MAX_RESULTS && historyPrepared.length) {
+      const history = search(historyPrepared, query, ctx, learned).slice(0, MAX_RESULTS - results.length);
+      if (history.length) {
+        historyStart = results.length;
+        results = [...results, ...history];
+      }
+    }
     selected = 0;
-    list.replaceChildren(
-      ...results.map((item, i) => renderRow(item, i, ctx, i === 0 && isPinned(item, learned), query, icons[item.url])),
+    const rows: HTMLElement[] = results.map((item, i) =>
+      renderRow(item, i, ctx, i === 0 && isPinned(item, learned), query, icons[item.url]),
     );
+    if (historyStart >= 0) {
+      const header = document.createElement('li');
+      header.className = 'section';
+      header.setAttribute('role', 'presentation');
+      header.textContent = 'History';
+      rows.splice(historyStart, 0, header);
+    }
+    list.replaceChildren(...rows);
     input.setAttribute('aria-expanded', String(results.length > 0));
     fillIcons();
 
@@ -423,7 +479,7 @@ export function mountPanel(panel: HTMLElement, shell: PanelShell): { input: HTML
         icons = { ...icons, ...found };
         if (results !== shown) return;
         shown.forEach((item, i) => {
-          const tile = list.children[i]?.querySelector('.tile');
+          const tile = list.querySelector(`#summon-option-${i} .tile`);
           if (found[item.url] && tile) tile.replaceWith(renderTile(item, found[item.url]));
         });
       },
@@ -647,6 +703,18 @@ export function mountPanel(panel: HTMLElement, shell: PanelShell): { input: HTML
     input.focus();
   });
 
+  /** Reads history in the background after tabs and bookmarks are shown; re-runs the search when it arrives. */
+  function loadHistory(): void {
+    if (!historyOn || !shell.history) return;
+    shell.history(prepared.map((p) => p.item.url)).then(
+      (pages) => {
+        historyPrepared = pages.map(prepare);
+        if (input.value.trim() && !menu && !commands && results.length < MAX_RESULTS) update();
+      },
+      () => {},
+    );
+  }
+
   /** Runs once the next load has updated the results. */
   let afterReload: (() => void) | undefined;
 
@@ -661,10 +729,12 @@ export function mountPanel(panel: HTMLElement, shell: PanelShell): { input: HTML
           memory = data.memory;
           icons = { ...icons, ...data.icons };
           prepared = data.items.map(prepare);
+          historyOn = !!data.historyEnabled;
           ready = true;
           update();
           afterReload?.();
           afterReload = undefined;
+          loadHistory();
           shell.loaded?.();
         },
         (error: unknown) => {

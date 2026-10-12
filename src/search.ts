@@ -164,7 +164,7 @@ export function prepare(item: Item): Prepared {
     host,
     hostLabels: labels.length > 1 ? labels.slice(0, -1) : labels,
     rest,
-    lastAccessed: Math.max(0, ...item.tabs.map((t) => t.lastAccessed)),
+    lastAccessed: Math.max(item.lastVisit ?? 0, ...item.tabs.map((t) => t.lastAccessed)),
   };
 }
 

@@ -3,6 +3,7 @@
 import { execute } from './actions';
 import { buildItems } from './data';
 import { cachedIcons, loadIcons } from './favicons';
+import { disableHistory, historyEnabled, historyItems } from './history';
 import type { OverlayRequest } from './background';
 import { loadMemory } from './storage';
 import type { Context } from './types';
@@ -41,9 +42,13 @@ const { input } = mountPanel(panel, {
     const ownPages = chrome.runtime.getURL('');
     const otherTabs = tabs.filter((t) => !(t.url || t.pendingUrl || '').startsWith(ownPages));
     const items = buildItems(otherTabs, tree);
-    return { items, ctx, memory, icons: await cachedIcons(items.map((i) => i.url)) };
+    const [icons, history] = await Promise.all([cachedIcons(items.map((i) => i.url)), historyEnabled()]);
+    return { items, ctx, memory, icons, historyEnabled: history };
   },
   icons: loadIcons,
+  history: historyItems,
+  // No enableHistory: Chrome's permission prompt would take focus and close the popup.
+  disableHistory: async () => void (await disableHistory()),
   remember(event) {
     // The background worker is the only writer; the message is out before the popup closes.
     void chrome.runtime.sendMessage({ type: 'record', event } satisfies OverlayRequest);

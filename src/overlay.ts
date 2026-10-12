@@ -114,6 +114,8 @@ function createOverlay(): NonNullable<typeof globalThis.__summonOverlay> {
       apply: (action) => send({ type: 'execute', action }),
       close,
       icons: (urls) => send({ type: 'icons', urls }),
+      history: (known) => send({ type: 'history', known }),
+      disableHistory: () => send({ type: 'disable-history' }),
       importMemory: (memory) => send({ type: 'import', memory }),
       holdOpen: (hold) => {
         holdOpen = hold;

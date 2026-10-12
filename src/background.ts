@@ -1,6 +1,7 @@
 import { execute } from './actions';
 import { buildItems } from './data';
 import { cachedIcons, type IconMap, loadIcons } from './favicons';
+import { disableHistory, historyEnabled, historyItems } from './history';
 import { type Memory, merge, type PickEvent, record } from './memory';
 import { isFreshNewTab, REPLACED } from './newtab-focus';
 import { loadMemory, saveMemory } from './storage';
@@ -50,12 +51,15 @@ export type OverlayRequest =
   | { type: 'execute'; action: Action }
   | { type: 'record'; event: PickEvent }
   | { type: 'import'; memory: Memory }
-  | { type: 'icons'; urls: string[] };
+  | { type: 'icons'; urls: string[] }
+  | { type: 'history'; known: string[] }
+  | { type: 'disable-history' };
 export interface LoadResponse {
   items: Item[];
   ctx: Context;
   memory: Memory;
   icons: IconMap;
+  historyEnabled: boolean;
   invokedAt: number;
 }
 
@@ -68,7 +72,8 @@ async function load(sender: chrome.runtime.MessageSender): Promise<LoadResponse>
   const ownPages = chrome.runtime.getURL('');
   const otherTabs = tabs.filter((t) => !(t.url || t.pendingUrl || '').startsWith(ownPages));
   const items = buildItems(otherTabs, tree);
-  return { items, ctx: contextOf(sender), memory, icons: await cachedIcons(items.map((i) => i.url)), invokedAt };
+  const [icons, history] = await Promise.all([cachedIcons(items.map((i) => i.url)), historyEnabled()]);
+  return { items, ctx: contextOf(sender), memory, icons, historyEnabled: history, invokedAt };
 }
 
 /** The only writer of memory (both shells send their picks here); writes run one after another. */
@@ -93,7 +98,11 @@ chrome.runtime.onMessage.addListener((message: OverlayRequest, sender, respond) 
           ? update((memory) => merge(memory, message.memory, Date.now()))
           : message.type === 'icons'
             ? loadIcons(message.urls)
-            : execute(message.action, contextOf(sender));
+            : message.type === 'history'
+              ? historyItems(message.known)
+              : message.type === 'disable-history'
+                ? disableHistory()
+                : execute(message.action, contextOf(sender));
   work.then(
     (result) => respond({ ok: true, result }),
     (error: unknown) => respond({ ok: false, error: error instanceof Error ? error.message : String(error) }),

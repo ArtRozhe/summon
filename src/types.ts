@@ -12,7 +12,8 @@ export interface TabRef {
  */
 export interface Item {
   id: string;
-  kind: 'tab' | 'bookmark';
+  /** `history`: a page from browsing history that is neither open nor bookmarked (optional permission). */
+  kind: 'tab' | 'bookmark' | 'history';
   /** Display title first, then other titles that should also match (other bookmark names, tab titles). */
   titles: string[];
   url: string;
@@ -23,6 +24,8 @@ export interface Item {
   tabs: TabRef[];
   /** Bookmarks only: tabs of the same origin under the bookmark's path, with other parameters (⌥↵ switches to them). */
   similarTabs: TabRef[];
+  /** History only: last visit, epoch ms. */
+  lastVisit?: number;
 }
 
 /** The tab and window the panel was invoked from. */

@@ -13,7 +13,7 @@ Keyboard search across open tabs and bookmarks for Chrome. One shortcut, a few l
 | ⌘C | Copy the URL (when no text is selected in the field) | Copy the URL |
 | ⇧⌘⌫ | Close the tab; the panel stays, ⌘Z reopens it | Close its tab, if open |
 | ↑ / ↓ | Move selection | |
-| `>` | Commands: export / import what Summon has learned | |
+| `>` | Commands: export / import what Summon has learned, turn history search on / off | |
 | Esc | Close | |
 
 An empty query lists recently used tabs, so shortcut → Enter jumps back to the previous tab.
@@ -100,6 +100,7 @@ so a few checks stay manual:
 - `bookmarks` — read bookmarks. Chrome shows "Read and change your bookmarks"; Summon never changes them.
 - `activeTab` + `scripting` — draw the panel inside the current page, only when you invoke Summon. No install warning.
 - `storage` — remember your picks (below), on this computer only. No install warning.
+- `history` (optional, asked for only when you turn history search on) — see above.
 - `favicon` — show site icons, read from Chrome's own icon cache (no network requests). No extra install warning next
   to `tabs`. Sites without a cached icon get a letter tile.
 
@@ -115,6 +116,14 @@ the Chrome Web Store, PDFs) the same panel opens as the toolbar popup instead.
 Chrome always gives a new tab's focus to the address bar, also when an extension provides the page. A tab an extension
 creates itself gets page focus, so when a New Tab opens, Summon's background worker opens its page in a fresh tab at
 the same place and closes the original. The address bar then shows Summon's page address instead of staying empty.
+
+## History search (optional)
+
+Off by default. Open a new tab, type `> Enable history search` and allow it in Chrome's prompt (it asks only on
+Summon's own page). From then on, when tabs and bookmarks give fewer than 8 matches, pages you visited in the last 90
+days fill the list under a **History** header — never above tabs and bookmarks, so Enter on the first result doesn't
+change. Same matching as everywhere (initials, wrong layout). `> Disable history search` gives the permission back.
+Chrome's warning for it is "Read and change your browsing history on all signed-in devices"; Summon only reads.
 
 ## What Summon learns
 

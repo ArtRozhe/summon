@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { MAX_RESULTS, prepare, search } from '../../src/search';
+import { emptyMemory, learnedFor, record } from '../../src/memory';
+import { isPinned, MAX_RESULTS, prepare, search } from '../../src/search';
 import type { Context, Item } from '../../src/types';
 import { bookmark, tab } from './fixtures';
 
@@ -148,5 +149,28 @@ describe('empty query', () => {
       bookmark('Open bookmark', 'https://ob.example/', [{ tabId: 7, windowId: 1, lastAccessed: 3 }]),
     ];
     expect(titlesFor(items, '   ')).toEqual(['Other window', 'Open bookmark', 'Old']);
+  });
+});
+
+describe('learned picks', () => {
+  const items = [
+    bookmark('AppDev1', 'https://dev1.app.example/'),
+    bookmark('AppDev2', 'https://dev2.app.example/'),
+    bookmark('Docs', 'https://docs.example/'),
+  ];
+  const now = Date.UTC(2026, 9, 1);
+  const twice = (query: string, url: string) =>
+    record(record(emptyMemory(), { query, key: url }, now), { query, key: url }, now + 1);
+
+  it('moves the usual pick to the top', () => {
+    const learned = learnedFor(twice('ad', 'https://dev2.app.example/'), 'ad', now + 2);
+    const results = search(items.map(prepare), 'ad', ctx, learned);
+    expect(results.map((i) => i.titles[0])).toEqual(['AppDev2', 'AppDev1']);
+    expect(isPinned(results[0]!, learned)).toBe(true);
+  });
+
+  it('never brings in a result that does not match', () => {
+    const learned = learnedFor(twice('ad', 'https://docs.example/'), 'ad', now + 2);
+    expect(search(items.map(prepare), 'ad', ctx, learned).map((i) => i.titles[0])).toEqual(['AppDev1', 'AppDev2']);
   });
 });

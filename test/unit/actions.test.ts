@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { describe as describeAction, pickTab, resolveAction } from '../../src/actions';
+import { describe as describeAction, pickTab, resolveAction, similarOutcome } from '../../src/actions';
 import type { Context } from '../../src/types';
 import { bookmark, tab } from './fixtures';
 
@@ -92,5 +92,33 @@ describe('pickTab', () => {
     expect(pickTab([otherRecent, sameWindow], ctx)).toBe(sameWindow);
     expect(pickTab([otherOld, otherRecent], ctx)).toBe(otherRecent);
     expect(pickTab([], ctx)).toBeUndefined();
+  });
+});
+
+describe('learned preference to switch to a similar tab', () => {
+  const similar = { tabId: 7, windowId: 2, lastAccessed: 3 };
+  const app = bookmark('App', 'https://app.example/?team=a', [], [similar]);
+
+  it('makes Enter switch and ⌥↵ open anew; ⇧↵ is unchanged', () => {
+    expect(resolveAction(app, {}, ctx, true)).toEqual({ type: 'activate', tabId: 7, windowId: 2 });
+    expect(resolveAction(app, { alt: true }, ctx, true)).toEqual({ type: 'open-new', url: 'https://app.example/?team=a' });
+    expect(resolveAction(app, { shift: true }, ctx, true)).toEqual({ type: 'open-here', tabId: 100, url: 'https://app.example/?team=a' });
+  });
+
+  it('falls back to opening when nothing similar is open', () => {
+    expect(resolveAction(bookmark('App', 'https://app.example/'), {}, ctx, true)).toEqual({ type: 'open-new', url: 'https://app.example/' });
+  });
+
+  it('is spelled out in the hints', () => {
+    expect(describeAction(app, ctx, true)).toEqual({ enter: 'Switch to open tab', shiftEnter: 'Open in this tab', altEnter: 'Open in new tab' });
+    expect(describeAction(app, ctx, false)).toEqual({ enter: 'Open in new tab', shiftEnter: 'Open in this tab', altEnter: 'Switch to open tab' });
+  });
+
+  it('records the outcome only when only similar tabs were open and Shift was not held', () => {
+    expect(similarOutcome(app, { alt: true }, { type: 'activate', tabId: 7, windowId: 2 })).toBe('switch');
+    expect(similarOutcome(app, {}, { type: 'open-new', url: app.url })).toBe('new');
+    expect(similarOutcome(app, { shift: true }, { type: 'open-here', tabId: 100, url: app.url })).toBeUndefined();
+    const open = bookmark('App', 'https://app.example/', [{ tabId: 5, windowId: 1, lastAccessed: 1 }], [similar]);
+    expect(similarOutcome(open, {}, { type: 'activate', tabId: 5, windowId: 1 })).toBeUndefined();
   });
 });

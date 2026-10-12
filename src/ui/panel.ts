@@ -1,12 +1,15 @@
-import { describe, resolveAction } from '../actions';
-import { prepare, search, type Prepared } from '../search';
+import { describe, resolveAction, similarOutcome } from '../actions';
+import { emptyMemory, type Learned, learnedFor, type Memory, memoryKey, type PickEvent, prefersSwitch } from '../memory';
+import { isPinned, prepare, search, type Prepared } from '../search';
 import type { Action, Context, Item, Modifiers } from '../types';
 
 const LOADING_DELAY_MS = 150;
 
 /** Where the panel lives: the action popup or the overlay inside a page. */
 export interface PanelShell {
-  load(): Promise<{ items: Item[]; ctx: Context }>;
+  load(): Promise<{ items: Item[]; ctx: Context; memory: Memory }>;
+  /** Saves a pick to memory (fire and forget). */
+  remember(event: PickEvent): void;
   /** Runs the action and closes the panel; rejects to show an error in the panel. */
   perform(action: Action, ctx: Context): Promise<void>;
   close(): void;
@@ -65,10 +68,10 @@ function badgesFor(item: Item, ctx: Context): string[] {
   return badges;
 }
 
-function renderRow(item: Item, index: number, ctx: Context): HTMLLIElement {
+function renderRow(item: Item, index: number, ctx: Context, pinned: boolean): HTMLLIElement {
   const li = document.createElement('li');
   li.id = `summon-option-${index}`;
-  li.className = 'row';
+  li.className = pinned ? 'row pinned' : 'row';
   li.setAttribute('role', 'option');
   li.dataset.index = String(index);
 
@@ -98,7 +101,7 @@ function renderRow(item: Item, index: number, ctx: Context): HTMLLIElement {
   }
 
   li.append(renderTile(item), text, badgeBox);
-  li.setAttribute('aria-label', `${title}, ${url}, ${badges.join(', ')}`);
+  li.setAttribute('aria-label', `${title}, ${url}, ${badges.join(', ')}${pinned ? ', your usual pick' : ''}`);
   return li;
 }
 
@@ -113,6 +116,8 @@ export function mountPanel(panel: HTMLElement, shell: PanelShell): { input: HTML
   const hints = panel.querySelector<HTMLElement>('.hints')!;
 
   let ctx: Context = {};
+  let memory: Memory = emptyMemory();
+  let learned: Learned | undefined;
   let prepared: Prepared[] = [];
   let results: Item[] = [];
   let selected = 0;
@@ -124,8 +129,10 @@ export function mountPanel(panel: HTMLElement, shell: PanelShell): { input: HTML
     status.classList.toggle('error', isError);
   }
 
+  const preferSwitchFor = (item: Item | undefined): boolean => !!item && prefersSwitch(memory, memoryKey(item.url));
+
   function renderHints(): void {
-    const d = describe(results[selected], ctx);
+    const d = describe(results[selected], ctx, preferSwitchFor(results[selected]));
     const parts = d ? [`<kbd>↵</kbd> ${d.enter}`] : [];
     if (d?.altEnter) parts.push(`<kbd>⌥↵</kbd> ${d.altEnter}`);
     if (d?.shiftEnter) parts.push(`<kbd>⇧↵</kbd> ${d.shiftEnter}`);
@@ -148,9 +155,10 @@ export function mountPanel(panel: HTMLElement, shell: PanelShell): { input: HTML
   function update(): void {
     if (!ready) return;
     const query = input.value;
-    results = search(prepared, query, ctx);
+    learned = learnedFor(memory, query, Date.now());
+    results = search(prepared, query, ctx, learned);
     selected = 0;
-    list.replaceChildren(...results.map((item, i) => renderRow(item, i, ctx)));
+    list.replaceChildren(...results.map((item, i) => renderRow(item, i, ctx, i === 0 && isPinned(item, learned))));
     input.setAttribute('aria-expanded', String(results.length > 0));
 
     if (results.length) {
@@ -164,9 +172,11 @@ export function mountPanel(panel: HTMLElement, shell: PanelShell): { input: HTML
   }
 
   async function run(mods: Modifiers): Promise<void> {
-    const action = resolveAction(results[selected], mods, ctx);
-    if (!action || busy) return;
+    const item = results[selected];
+    const action = resolveAction(item, mods, ctx, preferSwitchFor(item));
+    if (!item || !action || busy) return;
     busy = true;
+    shell.remember({ query: input.value, key: memoryKey(item.url), similarOutcome: similarOutcome(item, mods, action) });
     try {
       await shell.perform(action, ctx);
     } catch (error) {
@@ -213,6 +223,7 @@ export function mountPanel(panel: HTMLElement, shell: PanelShell): { input: HTML
     .then(
       (data) => {
         ctx = data.ctx;
+        memory = data.memory;
         prepared = data.items.map(prepare);
         ready = true;
         update();

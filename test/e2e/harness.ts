@@ -14,7 +14,7 @@ export interface Fixture {
 export interface Harness {
   browser: Browser;
   extensionId: string;
-  /** An extension page used to call chrome.* APIs; it stays in its own window. */
+  /** An extension page used to call chrome.* APIs; it stays in its own window. Replaced by `reloadExtension`. */
   control: Page;
   close(): Promise<void>;
 }
@@ -87,6 +87,37 @@ export async function launch(): Promise<Harness> {
       server.close();
     },
   };
+}
+
+/**
+ * Reloads the extension, as ↻ on its card does after an update, and reopens the control page.
+ * Pages that were open keep running, with the old overlay script orphaned in them.
+ */
+export async function reloadExtension(h: Harness): Promise<void> {
+  // Loading the same unpacked folder again is what ↻ does; the pinned key keeps the ID (and storage).
+  const old = h.control;
+  const id = await h.browser.installExtension(resolve('dist'));
+  if (id !== h.extensionId) throw new Error(`Extension ID changed on reload: ${id}`);
+  // Proof that it really reloaded: the old extension page is gone or cut off from the extension.
+  const oldAlive = await old.evaluate(() => !!chrome.runtime?.id).catch(() => false);
+  if (oldAlive) throw new Error('The extension did not reload');
+  for (let i = 0; i < 100; i++) {
+    await new Promise((r) => setTimeout(r, 100));
+    try {
+      const page = await h.browser.newPage();
+      await page.goto(`chrome-extension://${h.extensionId}/popup.html?control`);
+      if (await page.evaluate(() => !!chrome.runtime?.id)) {
+        h.control = page;
+        // Let the background worker come up before the next click.
+        await new Promise((r) => setTimeout(r, 500));
+        return;
+      }
+      await page.close();
+    } catch {
+      // The extension is not back yet.
+    }
+  }
+  throw new Error('The extension did not come back after reload');
 }
 
 export function fixtureUrl(url: string, title: string): string {

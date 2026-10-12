@@ -2,6 +2,8 @@
 // overlay can't run (chrome://, Web Store, PDF viewer).
 import { execute } from './actions';
 import { buildItems } from './data';
+import type { OverlayRequest } from './background';
+import { loadMemory } from './storage';
 import type { Context } from './types';
 import panelCss from './ui/panel.css';
 import { mountPanel, PANEL_MARKUP } from './ui/panel';
@@ -29,10 +31,19 @@ panel.innerHTML = PANEL_MARKUP;
 
 const { input } = mountPanel(panel, {
   async load() {
-    const [ctx, tabs, tree] = await Promise.all([loadContext(), chrome.tabs.query({}), chrome.bookmarks.getTree()]);
+    const [ctx, tabs, tree, memory] = await Promise.all([
+      loadContext(),
+      chrome.tabs.query({}),
+      chrome.bookmarks.getTree(),
+      loadMemory(),
+    ]);
     const ownPages = chrome.runtime.getURL('');
     const otherTabs = tabs.filter((t) => !(t.url || t.pendingUrl || '').startsWith(ownPages));
-    return { items: buildItems(otherTabs, tree), ctx };
+    return { items: buildItems(otherTabs, tree), ctx, memory };
+  },
+  remember(event) {
+    // The background worker is the only writer; the message is out before the popup closes.
+    void chrome.runtime.sendMessage({ type: 'record', event } satisfies OverlayRequest);
   },
   async perform(action, ctx) {
     await execute(action, ctx);

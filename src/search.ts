@@ -1,3 +1,4 @@
+import { type Learned, memoryKey } from './memory';
 import type { Context, Item } from './types';
 
 export const MAX_RESULTS = 8;
@@ -32,6 +33,8 @@ interface PreparedTitle {
 
 export interface Prepared {
   item: Item;
+  /** Identity in memory (`memoryKey` of the URL). */
+  key: string;
   titles: PreparedTitle[];
   /** Hostname without `www.`, e.g. `docs.google.com`. */
   host: string;
@@ -141,6 +144,7 @@ export function prepare(item: Item): Prepared {
   const labels = host.split('.').filter(Boolean);
   return {
     item,
+    key: memoryKey(item.url),
     titles: item.titles.map(prepareTitle),
     host,
     hostLabels: labels.length > 1 ? labels.slice(0, -1) : labels,
@@ -216,13 +220,24 @@ function recent(prepared: Prepared[], ctx: Context, limit: number): Item[] {
     .map((p) => p.item);
 }
 
-export function search(prepared: Prepared[], query: string, ctx: Context, limit = MAX_RESULTS): Item[] {
+/**
+ * Matching results, best first. What was learned from earlier picks only reorders matches: a bonus per
+ * result, and a pinned result moved to the top — it never brings in a result that doesn't match.
+ */
+export function search(prepared: Prepared[], query: string, ctx: Context, learned?: Learned): Item[] {
   const tokens = tokenize(query);
-  if (!tokens.length) return recent(prepared, ctx, limit);
-  return prepared
+  if (!tokens.length) return recent(prepared, ctx, MAX_RESULTS);
+  const ranked = prepared
     .map((p) => ({ p, s: score(p, tokens, ctx) }))
     .filter((r) => r.s > 0)
-    .sort(compare)
-    .slice(0, limit)
-    .map((r) => r.p.item);
+    .map((r) => ({ ...r, s: r.s + (learned?.bonus.get(r.p.key) ?? 0) }))
+    .sort(compare);
+  const pinned = learned?.pinned ? ranked.findIndex((r) => r.p.key === learned.pinned) : -1;
+  if (pinned > 0) ranked.unshift(...ranked.splice(pinned, 1));
+  return ranked.slice(0, MAX_RESULTS).map((r) => r.p.item);
+}
+
+/** Whether the result is first because of a learned habit (for the row marker). */
+export function isPinned(item: Item, learned?: Learned): boolean {
+  return !!learned?.pinned && memoryKey(item.url) === learned.pinned;
 }

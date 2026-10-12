@@ -2,13 +2,15 @@
   "manifest_version": 3,
   "name": "Summon",
   "version": "0.1.0",
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAmh2/dOxuTDjahxBn3GXArFVpXSsemiKFkvTZjJmevIttMAkUYku/Xa2RCpCeRZ5Wcn9VbC4wNxnPYsxpVcNHp6SIOh5Wi5UVUW6dL2yxaOLyQLde1cadnykvwpUPDP3AFSAEEwxQaMKttcDSuKTcJc+k4aEMvLZwB7rHVKbLuBDi9by8LTbijTCn4BoOMbphs60q5iec14BdTM+8WBC8/xhlcg8nAxsn+VyeaJ7Q7lJIkFnhAF8FE1i5Ro/QT+x6ev2iW4KukXWxzxKthKLfO7HjgIotZ/S0k9X8YU0tIJTEdihMHbdVKYr1jUhvseWTsEbOTopcLwMAPdOt58Pv9wIDAQAB",
   "description": "Keyboard search across open tabs and bookmarks.",
   "minimum_chrome_version": "127",
   "permissions": [
     "tabs",
     "bookmarks",
     "activeTab",
-    "scripting"
+    "scripting",
+    "storage"
   ],
   "action": {
     "default_title": "Summon",

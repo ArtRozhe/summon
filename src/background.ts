@@ -1,5 +1,7 @@
 import { execute } from './actions';
 import { buildItems } from './data';
+import { type Memory, type PickEvent, record } from './memory';
+import { loadMemory, saveMemory } from './storage';
 import type { Action, Context, Item } from './types';
 
 /** When the panel was last invoked, to report how fast it appeared (diagnostics only). */
@@ -30,10 +32,14 @@ async function openPopupFallback(tab: chrome.tabs.Tab): Promise<void> {
   }
 }
 
-export type OverlayRequest = { type: 'load' } | { type: 'execute'; action: Action };
+export type OverlayRequest =
+  | { type: 'load' }
+  | { type: 'execute'; action: Action }
+  | { type: 'record'; event: PickEvent };
 export interface LoadResponse {
   items: Item[];
   ctx: Context;
+  memory: Memory;
   invokedAt: number;
 }
 
@@ -42,14 +48,27 @@ function contextOf(sender: chrome.runtime.MessageSender): Context {
 }
 
 async function load(sender: chrome.runtime.MessageSender): Promise<LoadResponse> {
-  const [tabs, tree] = await Promise.all([chrome.tabs.query({}), chrome.bookmarks.getTree()]);
+  const [tabs, tree, memory] = await Promise.all([chrome.tabs.query({}), chrome.bookmarks.getTree(), loadMemory()]);
   const ownPages = chrome.runtime.getURL('');
   const otherTabs = tabs.filter((t) => !(t.url || t.pendingUrl || '').startsWith(ownPages));
-  return { items: buildItems(otherTabs, tree), ctx: contextOf(sender), invokedAt };
+  return { items: buildItems(otherTabs, tree), ctx: contextOf(sender), memory, invokedAt };
+}
+
+/** The only writer of memory (both shells send their picks here); writes run one after another. */
+let writes: Promise<unknown> = Promise.resolve();
+function remember(event: PickEvent): Promise<void> {
+  const write = writes.then(async () => saveMemory(record(await loadMemory(), event, Date.now())));
+  writes = write.catch(() => {});
+  return write;
 }
 
 chrome.runtime.onMessage.addListener((message: OverlayRequest, sender, respond) => {
-  const work = message.type === 'load' ? load(sender) : execute(message.action, contextOf(sender));
+  const work =
+    message.type === 'load'
+      ? load(sender)
+      : message.type === 'record'
+        ? remember(message.event)
+        : execute(message.action, contextOf(sender));
   work.then(
     (result) => respond({ ok: true, result }),
     (error: unknown) => respond({ ok: false, error: error instanceof Error ? error.message : String(error) }),

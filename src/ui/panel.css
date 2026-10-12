@@ -178,3 +178,15 @@ kbd {
   line-height: 16px;
   text-align: center;
 }
+
+/*
+ * Marks a result that is first because it is your usual pick for this search: the sparkle from the icon.
+ * Drawn by CSS so it stays out of the title text (screen readers get "your usual pick" from the row label).
+ */
+.row.pinned .title::before {
+  content: "✦";
+  margin-right: 6px;
+  color: var(--accent);
+  font-size: 12px;
+  vertical-align: 1px;
+}

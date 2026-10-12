@@ -99,6 +99,9 @@ function createOverlay(): NonNullable<typeof globalThis.__summonOverlay> {
         console.debug(`[Summon] panel ready ${Date.now() - data.invokedAt} ms after the click/shortcut`);
         return data;
       },
+      remember(event) {
+        send({ type: 'record', event }).catch((e: unknown) => console.error('[Summon]', e));
+      },
       async perform(action) {
         // Close first: switching tabs hides this page anyway, and the panel must not linger.
         close();

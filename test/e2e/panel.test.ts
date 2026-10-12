@@ -3,6 +3,7 @@ import {
   type Harness,
   launch,
   openPanel,
+  reloadExtension,
   type Panel,
   reset,
   RESULTS_DIR,
@@ -364,5 +365,78 @@ describe('popup fallback on restricted pages', () => {
     await press(panel, 'Enter');
     await waitClosed(panel);
     expect((await settledState(h, (s) => s.activeTabId === linear)).activeTabId).toBe(linear);
+  });
+});
+
+describe('memory', () => {
+  const APPS = [
+    { title: 'AppDev1', url: 'http://dev1.app.test/' },
+    { title: 'AppDev2', url: 'http://dev2.app.test/' },
+  ];
+
+  async function pickSecond(here: number): Promise<void> {
+    const panel = await openPanel(h, here);
+    await search(panel, 'ad');
+    // After one pick it may already be first (a bonus), so select it by title.
+    for (let i = 0; i < 2 && (await selectedTitle(panel)) !== 'AppDev2'; i++) await panel.page.keyboard.press('ArrowDown');
+    expect(await selectedTitle(panel)).toBe('AppDev2');
+    await press(panel, 'Enter');
+    await waitClosed(panel);
+  }
+
+  it('puts your usual pick first, and it survives an extension reload', async () => {
+    const [here] = await seed(h, [{ url: 'http://blank.test/', title: 'Blank' }], APPS);
+    let panel = await openPanel(h, here!);
+    await search(panel, 'ad');
+    expect(await titles(panel)).toEqual(['AppDev1', 'AppDev2']);
+    await press(panel, 'Escape');
+    await waitClosed(panel);
+
+    await pickSecond(here!);
+    await pickSecond(here!);
+
+    panel = await openPanel(h, here!);
+    await search(panel, 'ad');
+    expect(await titles(panel)).toEqual(['AppDev2', 'AppDev1']);
+    expect(await panel.query((root) => !!root.querySelector('.results .row.pinned'))).toBe(true);
+    await screenshot(panel, 'learned');
+    await press(panel, 'Escape');
+    await waitClosed(panel);
+
+    // An update: the extension reloads while the page stays open with the old overlay script in it.
+    await reloadExtension(h);
+    panel = await openPanel(h, here!);
+    await search(panel, 'ad');
+    expect(await titles(panel)).toEqual(['AppDev2', 'AppDev1']);
+  });
+});
+
+describe('learned ⌥↵', () => {
+  it('after two ⌥↵ in a row, Enter switches to the similar tab', async () => {
+    const [here, app] = await seed(
+      h,
+      [
+        { url: 'http://blank.test/', title: 'Blank' },
+        { url: 'http://app.test/projects/7?company=b', title: 'Project 7 · App' },
+      ],
+      [{ title: 'AppProd', url: 'http://app.test/?company=a' }],
+    );
+    for (let i = 0; i < 2; i++) {
+      const panel = await openPanel(h, here!);
+      await search(panel, 'appprod');
+      await press(panel, 'Enter', 'Alt');
+      await waitClosed(panel);
+      expect((await settledState(h, (s) => s.activeTabId === app)).activeTabId).toBe(app);
+    }
+    const panel = await openPanel(h, here!);
+    await search(panel, 'appprod');
+    const hints = await text(panel, '.hints');
+    expect(hints).toContain('↵ Switch to open tab');
+    expect(hints).toContain('⌥↵ Open in new tab');
+    await press(panel, 'Enter');
+    await waitClosed(panel);
+    const s = await settledState(h, (s) => s.activeTabId === app);
+    expect(s.activeTabId).toBe(app);
+    expect(s.tabCount).toBe(2);
   });
 });

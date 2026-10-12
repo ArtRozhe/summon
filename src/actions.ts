@@ -15,12 +15,20 @@ function switchTo(tabs: TabRef[], ctx: Context): Action | null {
   return { type: 'activate', tabId: tab.tabId, windowId: tab.windowId };
 }
 
-export function resolveAction(item: Item | undefined, mods: Modifiers, ctx: Context): Action | null {
+/**
+ * `preferSwitch`: learned for this bookmark (two ⌥↵ in a row) — Enter switches to a similar tab and ⌥↵
+ * opens the bookmark anew, the other way round from the default.
+ */
+export function resolveAction(item: Item | undefined, mods: Modifiers, ctx: Context, preferSwitch = false): Action | null {
   if (!item) return null;
 
   if (item.kind === 'bookmark') {
+    const toSimilar = (): Action | null => switchTo(item.tabs, ctx) ?? switchTo(item.similarTabs, ctx);
+    if (preferSwitch && !mods.shift) {
+      return mods.alt ? (switchTo(item.tabs, ctx) ?? { type: 'open-new', url: item.url }) : (toSimilar() ?? { type: 'open-new', url: item.url });
+    }
     // ⌥↵: switch to a tab where the bookmark is open, or else to a similar one (same app, other parameters).
-    if (mods.alt) return switchTo(item.tabs, ctx) ?? switchTo(item.similarTabs, ctx);
+    if (mods.alt) return toSimilar();
     // ⇧↵ explicitly loads the bookmark in the current tab, even if it is open elsewhere.
     if (mods.shift) {
       return ctx.currentTabId === undefined
@@ -36,14 +44,29 @@ export function resolveAction(item: Item | undefined, mods: Modifiers, ctx: Cont
 export function describe(
   item: Item | undefined,
   ctx: Context,
+  preferSwitch = false,
 ): { enter: string; shiftEnter?: string; altEnter?: string } | null {
   if (!item) return null;
-  const enter = resolveAction(item, {}, ctx)!;
+  const onlySimilar = item.kind === 'bookmark' && !item.tabs.length && item.similarTabs.length > 0;
+  const enter = resolveAction(item, {}, ctx, preferSwitch)!;
   const enterLabel =
-    enter.type === 'open-new' ? 'Open in new tab' : enter.type === 'none' ? 'Already here' : 'Switch to tab';
+    enter.type === 'open-new'
+      ? 'Open in new tab'
+      : enter.type === 'none'
+        ? 'Already here'
+        : onlySimilar
+          ? 'Switch to open tab'
+          : 'Switch to tab';
   if (item.kind === 'tab') return { enter: enterLabel };
-  const altEnter = !item.tabs.length && item.similarTabs.length ? 'Switch to open tab' : undefined;
+  const altEnter = onlySimilar ? (preferSwitch ? 'Open in new tab' : 'Switch to open tab') : undefined;
   return { enter: enterLabel, shiftEnter: 'Open in this tab', altEnter };
+}
+
+/** For memory: what a choice on a bookmark with only similar tabs amounted to. */
+export function similarOutcome(item: Item, mods: Modifiers, action: Action): 'switch' | 'new' | undefined {
+  if (item.kind !== 'bookmark' || item.tabs.length || !item.similarTabs.length || mods.shift) return undefined;
+  if (action.type === 'activate' || action.type === 'none') return 'switch';
+  return action.type === 'open-new' ? 'new' : undefined;
 }
 
 /**

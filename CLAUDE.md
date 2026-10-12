@@ -100,7 +100,7 @@ annoys, switch `.hl` in `panel.css` to one of those. For visual changes, render 
 
 ## Testing
 
-- `npm test` — Vitest unit tests on pure logic (`search`, `actions`, `data`).
+- `npm test` — Vitest unit tests on pure logic (`search`, `actions`, `data`, `memory`, `layout`, `highlight`).
 - `npm run e2e` — Puppeteer + Chrome for Testing, headless, throwaway profile. `openPanel` invokes Summon via
   `page.triggerExtensionAction` and returns a driver for whichever shell opened: the overlay is read through the
   page's extension realm (`page.extensionRealms()`, `__summonOverlay.root`), the popup through its target.
@@ -118,12 +118,18 @@ annoys, switch `.hl` in `panel.css` to one of those. For visual changes, render 
 ## Repo conventions
 
 - Personal git identity is set in the repo's local config — don't change it. Commit only when asked.
+- Workflow agreed for this project: once the user approves a change, commit and push together (logical commits,
+  `Co-Authored-By: Claude`). Bigger features go on a branch and are fast-forwarded into `main` after the user
+  has tried them in Chrome.
+- Public repo: local hooks `.git/hooks/pre-commit` + `commit-msg` block words listed in `.git/info/blocked-words`
+  (work names, personal paths). Never `--no-verify`; tests and docs use neutral examples (AppDev1, KitDev).
 - npm 11 install scripts allowed only for `esbuild` and `puppeteer` (`allowScripts` in `package.json`).
 - `local/` (gitignored) holds personal data such as the user's bookmark export — use it to check ranking on real
   bookmarks, never copy its contents into the repo (tests and docs use neutral examples).
 - Icon: "Spark" (sparkle on the Glass gradient), picked by the user from rendered options. Sources in `assets/`
   (`icon-small.svg` for 16/32 px drops the second sparkle); `npm run icons` renders `static/icons/*.png`.
-- No UI framework, no runtime dependencies; build = esbuild bundling `src/popup.ts` + copying `static/` to `dist/`.
+- No UI framework, no runtime dependencies; build = esbuild (`popup`, `background` as ESM, `overlay` as IIFE, CSS as
+  text) + copying `static/` to `dist/`.
 
 ## Roadmap
 
@@ -131,6 +137,10 @@ annoys, switch `.hl` in `panel.css` to one of those. For visual changes, render 
 
 ## Status (2026-10-12)
 
-MVP + CamelHumps search + open/similar rule + in-page overlay with popup fallback + memory (usual picks, ⌥↵ habit,
-export/import). Unit 70/70, E2E 23/23. Pending: the user's manual checklist from README in real Chrome.
+Done: MVP, CamelHumps search, open/similar rule (⌥↵), in-page overlay with popup fallback, memory (usual picks ✦,
+⌥↵ habit, export/import via `>`), wrong-layout search, match highlighting (style "E" on trial), Spark icon,
+lavender accents. Unit 86/86, E2E 24/24, all pushed.
+Pending: rest of the README manual checklist in real Chrome — shortcut with focus in the address bar, sites with
+their own shortcuts (GitHub, Google Docs, Jira), restricted pages (chrome://settings, Web Store, PDF). What the user
+used day to day works. Next on the roadmap: new tab page (starts with a focus prototype).
 Claude in Chrome can't open chrome:// or extension pages, so it can't drive Summon itself.

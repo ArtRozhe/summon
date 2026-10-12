@@ -7,6 +7,15 @@ Ordered by value for the core flow (shortcut → a few letters → Enter). Top-d
 1. **Remember choices per query.** If `ad` led to AppDev2 three times, it ranks first for `ad`. Learns from use
    instead of hand-tuned weights. Also per bookmark: once ⌥↵ (switch to a similar tab) is the usual choice for a
    bookmark, plain Enter does the same. Needs `storage` (no install warning); data stays local.
+   Storage groundwork, part of this item — the learned data must survive updates:
+   - Keep it in `chrome.storage.local`: cleared only when the extension is removed (`storage.session` is cleared on
+     every reload). Add an E2E test: write, reload the extension, read back.
+   - Pin the extension ID with `key` in the manifest. An unpacked extension's ID comes from its folder path, so moving
+     or re-cloning the project would otherwise start with empty storage.
+   - Version the stored format (`{ version: 1, … }`) and migrate on read.
+   - Export / import as a JSON file, a safety net against an accidental Remove; without a settings page, e.g. a
+     command typed into the search field.
+   - Not `storage.sync`: ~100 KB quota, and the data would leave the machine.
 2. **Wrong keyboard layout.** Also search the query converted between Russian ЙЦУКЕН and QWERTY (`фв1` → `ad1`).
    Cheap, no new permissions.
 3. **Highlight matched characters** in titles and URLs — shows why a result is there and makes ranking easier to debug.

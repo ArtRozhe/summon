@@ -35,8 +35,15 @@ npm run build        # or: npm run watch
 4. Check the shortcut at `chrome://extensions/shortcuts`. Suggested: `⌘⇧Space` on macOS, `Ctrl+Shift+Space` elsewhere.
    If it is taken by another extension, Chrome leaves it unset — assign it there.
 
-After rebuilding, press ↻ on the extension card. A changed `suggested_key` is only applied on first install:
-remove and load the extension again, or set the shortcut by hand.
+### Updating
+
+```sh
+git pull && npm run build
+```
+
+Then press ↻ on the extension card. Avoid **Remove** + Load unpacked and moving the project folder: both make Chrome
+treat it as a new extension, and anything Summon stores locally is lost. A changed `suggested_key` only applies on
+first install — set the shortcut by hand at `chrome://extensions/shortcuts` instead of reinstalling.
 
 ## Tests
 

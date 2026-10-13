@@ -13,10 +13,16 @@ Keyboard search across open tabs and bookmarks for Chrome. One shortcut, a few l
 | ⌘C | Copy the URL (when no text is selected in the field) | Copy the URL |
 | ⇧⌘⌫ | Close the tab; the panel stays, ⌘Z reopens it | Close its tab, if open |
 | ↑ / ↓ | Move selection | |
+| ⌘Enter | Search the web for what's typed (your default search engine), whichever row is selected | |
 | `>` | Commands: export / import what Summon has learned, turn history search on / off | |
 | Esc | Close | |
 
 An empty query lists recently used tabs, so shortcut → Enter jumps back to the previous tab.
+
+Below the results there is always **Search for "…"** (Chrome's default search engine), and **Go to …** when what you
+typed reads as an address (`github.com`, `localhost:3000`, `https://…`). They come first only when nothing else
+matches, so Enter still goes to the best tab or bookmark. A familiar domain (`.com`, `.io`, `.ru`…) or a path puts
+"Go to" before "Search"; `next.js` searches first.
 
 **New tab page.** Summon also replaces Chrome's New Tab page with the same search, focused, so ⌘T → a few letters →
 Enter works too. There the new tab itself is the "current tab": Enter on a bookmark opens it in that tab, switching to
@@ -101,6 +107,7 @@ so a few checks stay manual:
 - `activeTab` + `scripting` — draw the panel inside the current page, only when you invoke Summon. No install warning.
 - `storage` — remember your picks (below), on this computer only. No install warning.
 - `history` (optional, asked for only when you turn history search on) — see above.
+- `search` — search the web with your default search engine. No install warning.
 - `favicon` — show site icons, read from Chrome's own icon cache (no network requests). No extra install warning next
   to `tabs`. Sites without a cached icon get a letter tile.
 

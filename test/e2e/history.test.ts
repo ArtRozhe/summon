@@ -24,7 +24,7 @@ async function visit(urls: { url: string; title: string }[]): Promise<void> {
 
 function rows(panel: Panel): Promise<string[]> {
   return panel.query((root) =>
-    [...root.querySelectorAll('.results > li')].map((li) => (li.classList.contains('section') ? `— ${li.textContent}` : li.querySelector('.title')!.textContent!)),
+    [...root.querySelectorAll('.results > li:not(.web)')].map((li) => (li.classList.contains('section') ? `— ${li.textContent}` : li.querySelector('.title')!.textContent!)),
   );
 }
 

@@ -12,8 +12,11 @@ export interface TabRef {
  */
 export interface Item {
   id: string;
-  /** `history`: a page from browsing history that is neither open nor bookmarked (optional permission). */
-  kind: 'tab' | 'bookmark' | 'history';
+  /**
+   * `history`: a page from browsing history that is neither open nor bookmarked (optional permission).
+   * `url` / `search`: "Go to …" / "Search for …" rows for what was typed (src/web.ts).
+   */
+  kind: 'tab' | 'bookmark' | 'history' | 'url' | 'search';
   /** Display title first, then other titles that should also match (other bookmark names, tab titles). */
   titles: string[];
   url: string;
@@ -26,6 +29,8 @@ export interface Item {
   similarTabs: TabRef[];
   /** History only: last visit, epoch ms. */
   lastVisit?: number;
+  /** `search` only: what to search the web for. */
+  text?: string;
 }
 
 /** The tab and window the panel was invoked from. */
@@ -51,5 +56,7 @@ export type Action =
   | { type: 'close'; tabId: number }
   | { type: 'reopen'; url: string; windowId: number; index?: number }
   | { type: 'open-background'; url: string }
+  /** With the default search engine: in a new tab, or in place of a blank Summon tab. */
+  | { type: 'web-search'; text: string }
   | { type: 'move-here'; tabId: number }
   | { type: 'new-window'; tabId?: number; url: string };

@@ -11,7 +11,8 @@
     "activeTab",
     "scripting",
     "storage",
-    "favicon"
+    "favicon",
+    "search"
   ],
   "optional_permissions": [
     "history"

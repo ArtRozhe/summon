@@ -115,26 +115,42 @@ describe('search', () => {
     expect(await selectedTitle(panel)).toBe('Docs one');
     await panel.page.keyboard.press('ArrowDown');
     expect(await selectedTitle(panel)).toBe('Docs two');
+    // The web search row comes last, then the list wraps around.
+    await panel.page.keyboard.press('ArrowDown');
+    expect(await selectedTitle(panel)).toBe('Search for “docs”');
     await panel.page.keyboard.press('ArrowDown');
     expect(await selectedTitle(panel)).toBe('Docs one');
+    await panel.page.keyboard.press('ArrowUp');
     await panel.page.keyboard.press('ArrowUp');
     expect(await selectedTitle(panel)).toBe('Docs two');
     expect(await focusIsInField(panel)).toBe(true);
     expect(await panel.query((root) => root.querySelector('.query')!.getAttribute('aria-activedescendant'))).toBe('summon-option-1');
   });
 
-  it('shows "no matches" and ignores Enter on an empty list', async () => {
+  it('with no matches offers a web search, and Enter runs it in a new tab', async () => {
     const [tabId] = await seed(h, WORK);
     const before = await state(h);
     const panel = await openPanel(h, tabId!);
     await search(panel, 'zzzz');
     expect(await titles(panel)).toEqual([]);
-    expect(await text(panel, '.status')).toBe('No matches for “zzzz”');
-    await press(panel, 'Enter');
-    await new Promise((r) => setTimeout(r, 300));
-    expect(await panel.isOpen()).toBe(true);
-    expect((await state(h)).tabCount).toBe(before.tabCount);
+    expect(await selectedTitle(panel)).toBe('Search for “zzzz”');
     await screenshot(panel, 'no-matches');
+    await press(panel, 'Enter');
+    // (Not checking the active tab or the count: with no network, Chrome may add its own connectivity-check tab.)
+    const s = await settledState(h, (s) => s.urls.some((u) => u.includes('zzzz')));
+    expect(s.urls.filter((u) => u.includes('zzzz'))).toHaveLength(1);
+    expect(s.urls).toEqual(expect.arrayContaining(before.urls));
+  });
+
+  it('opens an address typed into the field', async () => {
+    const [tabId] = await seed(h, WORK);
+    const panel = await openPanel(h, tabId!);
+    await search(panel, 'http://kit.test/dev');
+    expect(await selectedTitle(panel)).toBe('Go to kit.test/dev');
+    await panel.page.emulateMediaFeatures([{ name: 'prefers-color-scheme', value: 'light' }]);
+    await screenshot(panel, 'go-to-address');
+    await press(panel, 'Enter');
+    expect((await settledState(h, (s) => s.activeUrl === 'http://kit.test/dev')).activeUrl).toBe('http://kit.test/dev');
   });
 });
 

@@ -14,6 +14,7 @@ import {
 import type { IconMap } from '../favicons';
 import { highlight, type Range } from '../highlight';
 import { visitedAgo } from '../history';
+import { webItems } from '../web';
 import { layoutVariants } from '../layout';
 import { isPinned, MAX_RESULTS, prepare, search, type Prepared } from '../search';
 import type { Action, Context, Item, Modifiers } from '../types';
@@ -152,6 +153,7 @@ export function renderTile(item: Item, icon?: string | null): HTMLSpanElement {
 }
 
 function badgesFor(item: Item, ctx: Context): string[] {
+  if (item.kind === 'search' || item.kind === 'url') return [];
   if (item.kind === 'history') return item.lastVisit ? [visitedAgo(item.lastVisit)] : [];
   const badges = [item.kind === 'tab' ? 'Tab' : 'Bookmark'];
   if (item.tabs.some((t) => t.tabId === ctx.currentTabId)) badges.push('Current');
@@ -183,8 +185,11 @@ function renderRow(item: Item, index: number, ctx: Context, pinned: boolean, que
   li.dataset.index = String(index);
 
   const title = item.titles[0]!;
-  const url = shortUrl(item.url);
+  // "Go to" shows the full address, so http / https is visible.
+  const url = item.kind === 'search' ? 'Default search engine' : item.kind === 'url' ? item.url : shortUrl(item.url);
   const badges = badgesFor(item, ctx);
+  if (item.kind === 'search' || item.kind === 'url') li.classList.add('web');
+  if (item.kind === 'search') li.classList.add('command');
 
   const text = document.createElement('span');
   text.className = 'text';
@@ -208,7 +213,7 @@ function renderRow(item: Item, index: number, ctx: Context, pinned: boolean, que
     badgeBox.append(badge);
   }
 
-  li.append(renderTile(item, icon), text, badgeBox);
+  li.append(item.kind === 'search' ? searchTile() : renderTile(item, icon), text, badgeBox);
   li.setAttribute('aria-label', `${title}, ${url}, ${badges.join(', ')}${pinned ? ', your usual pick' : ''}`);
   return li;
 }
@@ -235,6 +240,15 @@ function renderCommandRow(command: Command, index: number): HTMLLIElement {
   li.append(tile, text);
   li.setAttribute('aria-label', `${command.title}, ${command.detail}`);
   return li;
+}
+
+/** The magnifier from the search field, on a command tile. */
+function searchTile(): HTMLSpanElement {
+  const tile = document.createElement('span');
+  tile.className = 'tile';
+  tile.setAttribute('aria-hidden', 'true');
+  tile.innerHTML = '<svg class="tile-glyph" viewBox="0 0 20 20"><circle cx="8.5" cy="8.5" r="5.5"/><path d="m13 13 4 4"/></svg>';
+  return tile;
 }
 
 function renderMenuRow(action: MenuAction, index: number): HTMLLIElement {
@@ -397,7 +411,7 @@ export function mountPanel(panel: HTMLElement, shell: PanelShell): { input: HTML
     if (d?.altEnter) parts.push(`<kbd>⌥↵</kbd> ${d.altEnter}`);
     if (d?.shiftEnter) parts.push(`<kbd>⇧↵</kbd> ${d.shiftEnter}`);
     if (count() > 1) parts.push('<kbd>↑↓</kbd> Select');
-    if (d) parts.push('<kbd>⌘K</kbd> Actions');
+    if (d && results[selected]?.kind !== 'search') parts.push('<kbd>⌘K</kbd> Actions');
     parts.push(`<kbd>esc</kbd> ${shell.escapeLabel ?? 'Close'}`);
     hints.innerHTML = parts.map((p) => `<span>${p}</span>`).join('');
   }
@@ -444,6 +458,8 @@ export function mountPanel(panel: HTMLElement, shell: PanelShell): { input: HTML
         results = [...results, ...history];
       }
     }
+    // Then "Go to …" / "Search for …" for what was typed: first only when nothing else matches.
+    results = [...results, ...webItems(query)];
     selected = 0;
     const rows: HTMLElement[] = results.map((item, i) =>
       renderRow(item, i, ctx, i === 0 && isPinned(item, learned), query, icons[item.url]),
@@ -471,7 +487,7 @@ export function mountPanel(panel: HTMLElement, shell: PanelShell): { input: HTML
 
   /** Asks for icons the shown results don't have yet and swaps them into the rows that are still shown. */
   function fillIcons(): void {
-    const missing = [...new Set(results.map((item) => item.url).filter((url) => !(url in icons)))];
+    const missing = [...new Set(results.map((item) => item.url).filter((url) => url && !(url in icons)))];
     if (!shell.icons || !missing.length) return;
     const shown = results;
     shell.icons(missing).then(
@@ -518,7 +534,10 @@ export function mountPanel(panel: HTMLElement, shell: PanelShell): { input: HTML
     const action = resolveAction(item, mods, ctx, preferSwitchFor(item));
     if (!item || !action || busy) return;
     busy = true;
-    shell.remember({ query: input.value, key: memoryKey(item.url), similarOutcome: similarOutcome(item, mods, action) });
+    // Leaving for the web isn't a pick among results: not learned.
+    if (item.kind !== 'search' && item.kind !== 'url') {
+      shell.remember({ query: input.value, key: memoryKey(item.url), similarOutcome: similarOutcome(item, mods, action) });
+    }
     try {
       await shell.perform(action, ctx);
     } catch (error) {
@@ -582,7 +601,7 @@ export function mountPanel(panel: HTMLElement, shell: PanelShell): { input: HTML
 
   function openMenu(): void {
     const item = current();
-    if (!item || menu) return;
+    if (!item || menu || item.kind === 'search') return;
     menu = { item, actions: menuActions(item), back: selected };
     menuHead.replaceChildren(renderTile(item, icons[item.url]), Object.assign(document.createElement('span'), { textContent: item.titles[0]! }));
     menuHead.hidden = false;
@@ -681,7 +700,9 @@ export function mountPanel(panel: HTMLElement, shell: PanelShell): { input: HTML
         break;
       case 'Enter':
         e.preventDefault();
-        void run({ shift: e.shiftKey, alt: e.altKey });
+        // ⌘↵: search the web for what was typed, whichever row is selected.
+        if (e.metaKey && input.value.trim() && !commands && !menu) void perform({ type: 'web-search', text: input.value.trim() });
+        else void run({ shift: e.shiftKey, alt: e.altKey });
         break;
       case 'Escape':
         e.preventDefault();

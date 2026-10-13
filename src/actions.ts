@@ -30,6 +30,7 @@ export function resolveAction(item: Item | undefined, mods: Modifiers, ctx: Cont
 
 function resolve(item: Item | undefined, mods: Modifiers, ctx: Context, preferSwitch: boolean): Action | null {
   if (!item) return null;
+  if (item.kind === 'search') return { type: 'web-search', text: item.text ?? '' };
 
   if (item.kind === 'bookmark') {
     const toSimilar = (): Action | null => switchTo(item.tabs, ctx) ?? switchTo(item.similarTabs, ctx);
@@ -61,6 +62,7 @@ export function describe(
   preferSwitch = false,
 ): { enter: string; shiftEnter?: string; altEnter?: string } | null {
   if (!item) return null;
+  if (item.kind === 'search') return { enter: 'Search the web' };
   const onlySimilar = item.kind === 'bookmark' && !item.tabs.length && item.similarTabs.length > 0;
   const enter = resolveAction(item, {}, ctx, preferSwitch)!;
   const enterLabel =
@@ -123,6 +125,15 @@ export async function execute(action: Action, ctx: Context): Promise<void> {
       );
       break;
     }
+    case 'web-search':
+      calls.push(
+        chrome.search.query(
+          ctx.blankTab && ctx.currentTabId !== undefined
+            ? { text: action.text, tabId: ctx.currentTabId }
+            : { text: action.text, disposition: 'NEW_TAB' },
+        ),
+      );
+      break;
     case 'open-background':
       // Next to the current tab, like a ⌘-click; the panel stays open.
       calls.push(

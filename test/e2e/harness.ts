@@ -347,8 +347,9 @@ export async function waitClosed(panel: Panel): Promise<void> {
   throw new Error('Panel did not close');
 }
 
+/** Titles of the results, without the "Go to …" / "Search for …" rows. */
 export function titles(panel: Panel): Promise<string[]> {
-  return panel.query((root) => [...root.querySelectorAll('.results .title')].map((e) => e.textContent ?? ''));
+  return panel.query((root) => [...root.querySelectorAll('.results .row:not(.web) .title')].map((e) => e.textContent ?? ''));
 }
 
 export function selectedTitle(panel: Panel): Promise<string | undefined> {

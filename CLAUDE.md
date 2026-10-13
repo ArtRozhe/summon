@@ -40,7 +40,7 @@ User-facing docs, run instructions and the manual checklist are in `README.md`; 
 - **Background worker** is stateless: `load` (tabs + bookmarks → items, context from `sender.tab`) and `execute`
   messages from the overlay. The popup still reads data and executes itself.
 - **No cache.** Tabs and bookmarks are read fresh on every opening. Add one only if loading becomes measurably slow.
-- **Permissions: `tabs`, `bookmarks`, `activeTab`, `scripting`, `storage`, `favicon`; optional `history`.** No host
+- **Permissions: `tabs`, `bookmarks`, `activeTab`, `scripting`, `storage`, `favicon`, `search`; optional `history`.** No host
   permissions. `history`'s warning is stronger than `tabs`' ("Read and change your browsing history on all signed-in
   devices", documented), hence optional: `> Enable history search` on the new tab page (`permissions.request` needs an
   extension page + gesture; not offered in the overlay — no `chrome.permissions` in content scripts — nor in the popup,
@@ -67,6 +67,12 @@ User-facing docs, run instructions and the manual checklist are in `README.md`; 
   with ⌥↵. Agreed next step: learn per bookmark when ⌥↵ is used (roadmap item 1). Origin alone is too coarse
   (all github.com / docs.google.com bookmarks would look open).
 - Tab choice among duplicates: current tab → current window → most recently used.
+- **Web rows** (`src/web.ts`, user's request): after all results, "Search for “…”" (`chrome.search.query`, the
+  user's default engine, `search` permission has no warning) and "Go to …" when the query reads as an address
+  (scheme, domain with letter TLD, localhost, IPv4). Order: results → history → web rows, so they're first only with
+  no matches (Enter = best match stays). "Go to" before "Search" when likely (scheme, path, `www.`, common TLD list),
+  else after (`next.js`). ⌘↵ = web search from any row. Not remembered (not a pick). Opens in a new tab / in place on
+  the new tab page. Rows have class `web`; E2E `titles()` skips them.
 - **History search** (`src/history.ts`): loaded after the first results (`shell.history`), last 90 days, ≤3000 pages,
   minus tab/bookmark URLs, searched by the same engine; shown under a "History" header only when tabs + bookmarks give
   < 8 matches and the query isn't empty — never above them. Row badge = "Today / Yesterday / N days ago". Enter opens in
@@ -181,7 +187,7 @@ Done: MVP, CamelHumps search, open/similar rule (⌥↵), in-page overlay with p
 lavender accents.
 New tab page (focused search, blank-tab behavior, frequent chips with ⌥1…⌥6, clock, stale tabs), tried by the user
 in Chrome and merged. Unit 94/94, E2E 28/28.
-Site icons (favicons) in all shells. Tab actions (⌘K menu, ⌘C, ⇧⌘⌫ + ⌘Z). History search (optional permission). Unit 97/97, E2E 37/37.
+Site icons (favicons) in all shells. Tab actions (⌘K menu, ⌘C, ⇧⌘⌫ + ⌘Z). History search (optional permission). Web search / go to address in the field. Unit 102/102, E2E 38/38.
 Pending: rest of the README manual checklist in real Chrome — shortcut with focus in the address bar, sites with
 their own shortcuts (GitHub, Google Docs, Jira), restricted pages (chrome://settings, Web Store, PDF). What the user
 used day to day works. Claude in Chrome can't open chrome:// or extension pages, so it can't drive Summon itself.

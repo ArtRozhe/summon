@@ -127,6 +127,10 @@ when it has letters of that script); each result takes its best score, −5 if o
 Memory is looked up for all spellings (`learnedForAny`); picks are recorded under the query as typed. Commands work
 with a shifted Ю (= `>`); lowercase ю never turns a search into commands.
 Search by folder names was considered and dropped: the user's folders are for order, names carry the abbreviations.
+Only human-written text is searched as a title. A title that is itself a URL (Chrome's fallback for untitled pages,
+also used for untitled bookmarks and history) is skipped (`isUrlTitle`): the random words of a long query string
+(auth tokens, ids) let abbreviation matching with skips find almost any query. Derived text (URLs, ids) is matched
+only as a URL, at URL weight — keep that for any new source (e.g. tab group names are fine, generated labels aren't).
 Known trade-off: an exact word ("Using git rebase") beats a domain prefix (`github.com`) for `git` — lower
 `exactWord` if that annoys in practice.
 
@@ -151,6 +155,8 @@ annoys, switch `.hl` in `panel.css` to one of those. For visual changes, render 
   page's extension realm (`page.extensionRealms()`, `__summonOverlay.root`), the popup through its target.
   Screenshots go to `test-results/` — look at them after UI changes (force `prefers-color-scheme`: headless follows
   the system theme).
+- A bug seen on the user's real data: reproduce it with the real input in a throwaway test that is never committed
+  (it may hold work names), then commit a neutralized test.
 - Gotchas found:
   - Fixture hosts must be `*.test`: github.com etc. are HSTS-preloaded and get forced to https, while the local fixture
     server is http. Also pass `--disable-features=HttpsUpgrades`.
@@ -187,7 +193,10 @@ Done: MVP, CamelHumps search, open/similar rule (⌥↵), in-page overlay with p
 lavender accents.
 New tab page (focused search, blank-tab behavior, frequent chips with ⌥1…⌥6, clock, stale tabs), tried by the user
 in Chrome and merged. Unit 94/94, E2E 28/28.
-Site icons (favicons) in all shells. Tab actions (⌘K menu, ⌘C, ⇧⌘⌫ + ⌘Z). History search (optional permission). Web search / go to address in the field. Unit 102/102, E2E 38/38.
+Site icons (favicons) in all shells. Tab actions (⌘K menu, ⌘C, ⇧⌘⌫ + ⌘Z). History search (optional permission). Web search / go to address in the field. Untitled pages no longer match gibberish (URL titles). Unit 104/104, E2E 38/38.
 Pending: rest of the README manual checklist in real Chrome — shortcut with focus in the address bar, sites with
-their own shortcuts (GitHub, Google Docs, Jira), restricted pages (chrome://settings, Web Store, PDF). What the user
+their own shortcuts (GitHub, Google Docs, Jira), restricted pages (chrome://settings, Web Store, PDF), ⌘T focus,
+enabling/disabling history, web search going to the default engine. Unverified: ⌘N (new window) gets the same New Tab
+swap as ⌘T (only `tabs.create({})` was tested); the popup closing on the permission prompt. ROADMAP "Next" is empty —
+the user hasn't picked the next item. What the user
 used day to day works. Claude in Chrome can't open chrome:// or extension pages, so it can't drive Summon itself.

@@ -2,7 +2,7 @@
 // (whole word, start of title or word, word-start abbreviations, substring within a word, URL), so the
 // highlight shows why a result is there. Only for the few rows on screen, never in the ranking loop.
 import { layoutVariants } from './layout';
-import { camelParts, humpPath, tokenize } from './search';
+import { camelParts, humpPath, isUrlTitle, tokenize } from './search';
 
 export type Range = [start: number, end: number];
 
@@ -92,10 +92,11 @@ function merge(ranges: Range[]): Range[] {
  */
 export function highlight(title: string, url: string, query: string): { title: Range[]; url: Range[] } {
   let best = { title: [] as Range[], url: [] as Range[], found: 0 };
+  const titleSearched = !isUrlTitle(title);
   for (const variant of layoutVariants(query)) {
     const current = { title: [] as Range[], url: [] as Range[], found: 0 };
     for (const token of tokenize(variant)) {
-      const t = inTitle(title, token);
+      const t = titleSearched ? inTitle(title, token) : null;
       const u = t ? null : inUrl(url, token);
       if (t) current.title.push(...t);
       if (u) current.url.push(...u);

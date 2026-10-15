@@ -154,13 +154,22 @@ function decodeSafe(s: string): string {
   }
 }
 
+/**
+ * Chrome shows the URL as the title of an untitled page (and we do the same for untitled bookmarks and history).
+ * Such a "title" isn't searched as one: its query string can hold hundreds of random words (tokens, ids), and
+ * abbreviation matching would find almost any query in them. The URL itself is still searched as a URL.
+ */
+export function isUrlTitle(title: string): boolean {
+  return /^[a-z][a-z\d+.-]*:\/\/\S*$/i.test(title.trim());
+}
+
 export function prepare(item: Item): Prepared {
   const { host, rest } = splitUrl(item.url);
   const labels = host.split('.').filter(Boolean);
   return {
     item,
     key: memoryKey(item.url),
-    titles: item.titles.map(prepareTitle),
+    titles: item.titles.filter((t) => !isUrlTitle(t)).map(prepareTitle),
     host,
     hostLabels: labels.length > 1 ? labels.slice(0, -1) : labels,
     rest,

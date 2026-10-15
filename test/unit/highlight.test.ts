@@ -44,6 +44,11 @@ describe('highlight in titles', () => {
 });
 
 describe('highlight in URLs', () => {
+  it('does not mark abbreviations in a title that is a URL', () => {
+    const url = 'https://example.test/cb?token=CfDJ8Dv1Rm0WJ1dGoELh9ccg';
+    expect(highlight(url, 'example.test/cb', 'cdg').title).toEqual([]);
+  });
+
   it('marks the URL when the title doesn’t match', () => {
     const h = highlight('Some page', 'docs.example.test/guide/intro', 'intro');
     expect(h.title).toEqual([]);

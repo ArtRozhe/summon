@@ -50,6 +50,20 @@ describe('matching', () => {
     expect(ranked).toEqual(['Comics', 'Example']);
   });
 
+  it('does not search an untitled page\'s URL as a title (random query words would match anything)', () => {
+    const url =
+      'https://sso.example.test/callback?client_id=oidc-identity&code=AE9vKOlWHASVz6GzrfhGHFhuyMBJJ2MYTnwsu6m4C-0' +
+      '&nonce=OTgxYzIzN2QtOTMxMi00OGI4LWI1ZGUtMjc2NTJiODU2NDM1YjYxYjJmMTgtZWZmYS00ZjQwLWE0ZTktMWZlNWFkOTBlNWE3' +
+      '&token=CfDJ8Dv1Rm0WJ1dGoELh9ccg0G5tLxvSQBHW_0a5UkfjOrAEJQrEskfIDVoZ40TMZLXEBAgQZYwvLdndynwL-OcdHW2IW4D00HmYiDc' +
+      '_VSiuRjjLmhpNDbiryJ1rTKhL5jUsXXuzW2ZmMP_rvCieb_CqOPbTnHmMf2GOEGpqnEE0FAY8lASGwsc6AbbzzX_UfyRns1IsHZPI6pueWfYS';
+    const untitled = [tab(url, url)];
+    expect(titlesFor(untitled, 'как сделать так')).toEqual([]);
+    expect(titlesFor(untitled, 'asdfasdfasdf')).toEqual([]);
+    // The URL itself is still searched.
+    expect(titlesFor(untitled, 'sso')).toEqual([url]);
+    expect(titlesFor(untitled, 'callback')).toEqual([url]);
+  });
+
   it('decodes percent-encoded paths', () => {
     expect(titlesFor([bookmark('Wiki', 'https://ru.wikipedia.org/wiki/%D0%9A%D0%BE%D1%82')], 'кот')).toEqual(['Wiki']);
   });
